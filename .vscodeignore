@@ -1,0 +1,15 @@
+# Exclude development files and folders
+.vscode/
+.vscode-test/
+node_modules/
+src/
+test/
+
+# Exclude build artifacts
+*.vsix
+**/*.map
+
+# Exclude project configuration
+.gitignore
+package-lock.json
+tsconfig.json
