@@ -77,19 +77,22 @@ ARXML Viewer 是一个 VSCode 扩展，用于查看和编辑 AUTOSAR ARXML 配�
 
 ### 项目结构
 ```
-jj-configurator/
-├── src/                    # TypeScript 源代码
-│   ├── customEditor.ts     # 自定义编辑器实现
-│   ├── extension.ts        # 扩展主入口
-│   ├── services/          # 服务层
-│   └── providers/         # 数据提供者
-├── python-backend/        # Python 后端
-│   ├── cli_wrapper.py     # 命令行接口
-│   ├── processors.py      # 文件处理器
-│   └── lib/              # 解析库
-├── out/                  # 编译输出
-├── package.json          # 项目配置
-└── README.md            # 项目文档
+arxml-viewer/
+├── src/                        # TypeScript 源代码 (前端)
+│   ├── customEditor.ts         # 自定义编辑器 UI 和逻辑
+│   ├── extension.ts            # 扩展主入口
+│   ├── models/                 # 数据模型
+│   ├── providers/              # 数据提供者 (树状视图、属性面板)
+│   └── services/               # 服务 (Python后端通信、文件处理等)
+├── python-backend/             # Python 后端
+│   ├── cli_wrapper.py          # 命令行接口
+│   ├── processors.py           # 文件处理器
+│   ├── converters.py           # 数据转换器
+│   └── lib/                    # 解析库核心
+├── test/                       # 测试相关
+├── out/                        # 编译输出目录
+├── package.json                # 项目和依赖配置
+└── README.md                   # 就是你现在看的这个文件 :)
 ```
 
 ## 🎨 界面特性
