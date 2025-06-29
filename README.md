@@ -198,7 +198,7 @@ npm test
 
 **余文锋**  
 📧 邮箱: 909188787@qq.com  
-🐙 GitHub: [项目地址](https://github.com/ywfhighlo/jj-configurator)
+🐙 GitHub: [项目地址](https://github.com/ywfhighlo/arxml-viewer)
 
 ---
 

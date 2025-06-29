@@ -14,9 +14,6 @@ venv/
 env/
 *.egg-info/
 dist/
-# It's better to install the dependencies from requirements.txt
-# instead of committing them.
-python-backend/lib/
 
 # VSCode
 .vscode/*
