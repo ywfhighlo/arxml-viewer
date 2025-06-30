@@ -15,18 +15,8 @@ from typing import Dict, Type
 sys.path.insert(0, os.path.dirname(__file__))
 
 from converters.base_converter import BaseConverter
-from converters.md_to_office import MdToOfficeConverter
-from converters.office_to_md import OfficeToMdConverter
-from converters.diagram_to_png import DiagramToPngConverter
-
-# 转换器工厂映射表
-CONVERTER_REGISTRY: Dict[str, Type[BaseConverter]] = {
-    'md-to-docx': MdToOfficeConverter,
-    'md-to-pdf': MdToOfficeConverter,
-    'md-to-html': MdToOfficeConverter,
-    'office-to-md': OfficeToMdConverter,
-    'diagram-to-png': DiagramToPngConverter,
-}
+# 从 __init__.py 导入注册表
+from converters import CONVERTER_REGISTRY
 
 def setup_logging():
     """配置日志系统"""
@@ -36,21 +26,8 @@ def setup_logging():
         handlers=[logging.StreamHandler(sys.stderr)]
     )
 
-def create_converter(conversion_type: str, output_dir: str, **kwargs) -> BaseConverter:
-    """
-    工厂方法：根据转换类型创建对应的转换器实例
-    
-    Args:
-        conversion_type: 转换类型
-        output_dir: 输出目录
-        **kwargs: 其他配置参数
-        
-    Returns:
-        BaseConverter: 转换器实例
-        
-    Raises:
-        ValueError: 不支持的转换类型
-    """
+def get_converter(conversion_type: str, output_dir: str, **kwargs) -> BaseConverter:
+    """Converter factory"""
     if conversion_type not in CONVERTER_REGISTRY:
         raise ValueError(f"不支持的转换类型: {conversion_type}")
     
@@ -64,7 +41,6 @@ def create_converter(conversion_type: str, output_dir: str, **kwargs) -> BaseCon
     return converter_class(output_dir, **kwargs)
 
 def main():
-    """CLI for the Office & Docs Converter."""
     parser = argparse.ArgumentParser(
         description="Markdown Docs Converter - 文档转换工具",
         formatter_class=argparse.RawTextHelpFormatter
@@ -78,6 +54,10 @@ def main():
                        help='输出目录')
     parser.add_argument('--template-path', 
                        help='可选的模板文件路径')
+    parser.add_argument('--project-name', help='项目名称 (可选)')
+    parser.add_argument('--author', help='作者名称 (可选)')
+    parser.add_argument('--mobilephone', help='联系电话 (可选)')
+    parser.add_argument('--email', help='电子邮箱 (可选)')
     parser.add_argument('--verbose', '-v', action='store_true',
                        help='启用详细日志输出')
     
@@ -94,16 +74,19 @@ def main():
         if not os.path.exists(args.input_path):
             raise FileNotFoundError(f"输入路径不存在: {args.input_path}")
         
-        # 创建转换器
-        converter_kwargs = {}
-        if args.template_path:
-            converter_kwargs['template_path'] = args.template_path
-        
-        converter = create_converter(
-            args.conversion_type, 
-            args.output_dir, 
-            **converter_kwargs
-        )
+        # 动态构建传递给转换器的kwargs
+        converter_kwargs = {
+            "template_path": args.template_path,
+            "project_name": args.project_name,
+            "author": args.author,
+            "mobilephone": args.mobilephone,
+            "email": args.email
+        }
+        # 过滤掉值为 None 的参数
+        converter_kwargs = {k: v for k, v in converter_kwargs.items() if v is not None}
+
+        # 使用 conversion-type 获取转换器实例
+        converter = get_converter(args.conversion_type, args.output_dir, **converter_kwargs)
         
         # 执行转换
         output_files = converter.convert(args.input_path)

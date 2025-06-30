@@ -8,6 +8,7 @@ import re
 import shutil
 from datetime import datetime
 from pathlib import Path
+import logging
 
 # 平台检测和条件导入（迁移自tools/md_to_docx.py）
 IS_WINDOWS = platform.system() == "Windows"
@@ -27,330 +28,360 @@ else:
 
 class MdToOfficeConverter(BaseConverter):
     """
-    Markdown 到 Office 文档转换器
-    
-    迁移自 tools/md_to_docx.py 的成熟转换逻辑
-    支持 Markdown -> DOCX/PDF/HTML 转换
+    This class encapsulates the logic from the original md_to_docx.py script,
+    refactored to be reusable and integrate into the VS Code extension backend.
     """
-    
+
     def __init__(self, output_dir: str, **kwargs):
         super().__init__(output_dir, **kwargs)
+        self.output_dir = Path(output_dir)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Get config from kwargs, with defaults
         self.output_format = kwargs.get('output_format', 'docx')
         self.template_path = kwargs.get('template_path')
-        
-        # 验证输出格式
-        if self.output_format not in ['docx', 'pdf', 'html']:
-            raise ValueError(f"不支持的输出格式: {self.output_format}")
-    
+        self.project_name = kwargs.get('project_name', '')
+        self.author = kwargs.get('author', '')
+        self.mobilephone = kwargs.get('mobilephone', '')
+        self.email = kwargs.get('email', '')
+
     def convert(self, input_path: str) -> List[str]:
         """
-        将 Markdown 文件转换为指定的 Office 格式
-        
-        Args:
-            input_path: 输入的 .md 文件或包含 .md 文件的目录
-            
-        Returns:
-            List[str]: 生成的输出文件路径列表
+        Main conversion entry point. Handles both single files and directories.
         """
-        # 验证输入
         if not self._is_valid_input(input_path, ['.md']):
-            raise ValueError(f"无效的输入文件或目录: {input_path}")
-        
+            raise ValueError(f"Invalid input file or directory: {input_path}")
+
         output_files = []
-        
         if os.path.isfile(input_path):
-            # 单文件转换
             output_file = self._convert_single_file(input_path)
             if output_file:
                 output_files.append(output_file)
         else:
-            # 批量转换目录下的所有 .md 文件
             md_files = self._get_files_by_extension(input_path, ['.md'])
-            if not md_files:
-                raise ValueError(f"目录中未找到 .md 文件: {input_path}")
-            
             for md_file in md_files:
                 output_file = self._convert_single_file(md_file)
                 if output_file:
                     output_files.append(output_file)
         
         return output_files
-    
-    def _convert_single_file(self, md_file: str) -> Optional[str]:
+
+    def _convert_single_file(self, input_file: str) -> Optional[str]:
         """
-        转换单个 Markdown 文件
-        基于 tools/md_to_docx.py 的 convert_to_docx 函数逻辑
-        
-        Args:
-            md_file: Markdown 文件路径
-            
-        Returns:
-            str: 输出文件路径，失败时返回 None
+        Routes a single file to the correct conversion method based on output format.
         """
-        try:
-            if self.output_format == 'docx':
-                return self._convert_to_docx(md_file)
-            elif self.output_format == 'pdf':
-                return self._convert_to_pdf(md_file)
-            elif self.output_format == 'html':
-                return self._convert_to_html(md_file)
-        except Exception as e:
-            self.logger.error(f"转换文件 {md_file} 失败: {str(e)}")
+        if not Path(input_file).exists():
+            self.logger.error(f"Input file not found: {input_file}")
             return None
-    
-    def _convert_to_docx(self, md_file: str) -> Optional[str]:
-        """
-        转换为 DOCX 格式
-        迁移自 tools/md_to_docx.py 的 convert_to_docx 函数
-        """
-        input_path = Path(md_file)
-        output_path = Path(self.output_dir)
-        output_path.mkdir(parents=True, exist_ok=True)
-        
-        # 创建输出文件名
-        if self.template_path and WIN32COM_AVAILABLE:
-            output_file = str(output_path / f"{input_path.stem}.template.docx")
+
+        if self.output_format == 'docx':
+            return self._convert_to_docx(input_file)
+        elif self.output_format == 'pdf':
+            docx_path = self._convert_to_docx(input_file, to_pdf=True)
+            if not docx_path:
+                self.logger.error(f"Failed to create intermediate DOCX for PDF conversion from {input_file}")
+                return None
+            
+            pdf_path = self._convert_docx_to_pdf(docx_path)
+            
+            # Clean up the intermediate docx file
+            if pdf_path and os.path.exists(docx_path):
+                try:
+                    os.remove(docx_path)
+                    self.logger.info(f"Removed intermediate file: {docx_path}")
+                except OSError as e:
+                    self.logger.warning(f"Failed to remove intermediate file {docx_path}: {e}")
+
+            return pdf_path
+        elif self.output_format == 'html':
+            return self._convert_to_html(input_file)
         else:
-            output_file = str(output_path / f"{input_path.stem}.docx")
-        
-        # 检查输入文件是否存在
-        if not input_path.exists():
-            self.logger.error(f"找不到输入文件: {md_file}")
+            self.logger.error(f"Unsupported output format: {self.output_format}")
             return None
-        
-        try:
-            # 处理标题前的序号, 图片标题, 和列表前的空行
-            processed_file = self._remove_title_numbers(md_file)
-            
-            # 设置资源路径列表，包括Markdown文件所在目录
-            resource_paths = [
-                str(input_path.parent),
-                str(input_path.parent.parent)  # 上级目录(支持../路径)
-            ]
-            resource_path_arg = '--resource-path=' + os.pathsep.join(resource_paths)
-            
-            # 检查pandoc是否可用
-            if not self._check_tool_availability("pandoc"):
-                self.logger.error(f"找不到pandoc命令，无法转换文件: {md_file}")
-                return None
-            
-            # 如果使用模板且在Windows上
-            if self.template_path and os.path.exists(self.template_path) and WIN32COM_AVAILABLE:
-                return self._convert_with_template(processed_file, input_path, output_path, resource_path_arg, md_file)
-            else:
-                # 使用简单pandoc转换
-                return self._convert_simple_docx(processed_file, output_file, resource_path_arg, md_file)
-                
-        except Exception as e:
-            self.logger.error(f"处理文件 {md_file} 时出错: {str(e)}")
-            return None
-    
-    def _convert_with_template(self, processed_file: str, input_path: Path, 
-                             output_path: Path, resource_path_arg: str, original_file: str) -> Optional[str]:
-        """使用模板转换DOCX"""
-        temp_docx = str(output_path / f"{input_path.stem}_temp.docx")
-        
-        # 构建pandoc命令
-        cmd = [
-            'pandoc',
-            processed_file,
-            '-o', temp_docx,
-            resource_path_arg,
-            '--quiet'
-        ]
-        
-        # 执行pandoc命令
-        try:
-            process = subprocess.Popen(
-                cmd, 
-                stdout=subprocess.PIPE, 
-                stderr=subprocess.PIPE,
-                text=True,
-                encoding='utf-8',
-                errors='replace'
-            )
-            stdout, stderr = process.communicate()
-            
-            if process.returncode != 0:
-                self.logger.error(f"Pandoc转换失败: {stderr}")
-                return None
-        except FileNotFoundError:
-            self.logger.error("无法执行pandoc命令，请确保pandoc已正确安装")
-            return None
-        
-        # 获取文档标题
-        title = self._get_title_from_md(processed_file)
-        
-        # 复制模板并追加内容
-        try:
-            final_output = self._copy_template_and_append_content(self.template_path, temp_docx, title)
-            
-            # 清理临时文件
-            self._cleanup_temp_files([temp_docx], processed_file, original_file)
-            
-            self.logger.info(f"成功转换: {original_file} -> {final_output}")
-            return final_output
-            
-        except Exception as e:
-            self.logger.error(f"模板处理失败: {e}")
-            self._cleanup_temp_files([temp_docx], processed_file, original_file)
-            return None
-    
-    def _convert_simple_docx(self, processed_file: str, output_file: str, 
-                           resource_path_arg: str, original_file: str) -> Optional[str]:
-        """简单pandoc转换，适用于所有系统"""
-        cmd = [
-            'pandoc',
-            processed_file,
-            '-o', output_file,
-            resource_path_arg,
-            '--quiet'
-        ]
-        
-        try:
-            process = subprocess.Popen(
-                cmd, 
-                stdout=subprocess.PIPE, 
-                stderr=subprocess.PIPE,
-                text=True,
-                encoding='utf-8',
-                errors='replace'
-            )
-            stdout, stderr = process.communicate()
-            
-            # 清理临时文件
-            if processed_file != original_file:
-                try:
-                    os.remove(processed_file)
-                except Exception as e:
-                    self.logger.warning(f"无法删除临时文件 {processed_file}: {e}")
-            
-            if process.returncode != 0:
-                self.logger.error(f"转换失败: {original_file} -> {output_file}")
-                self.logger.error(f"错误: {stderr}")
-                return None
-                
-        except FileNotFoundError:
-            self.logger.error("无法执行pandoc命令，请确保pandoc已正确安装")
-            if processed_file != original_file:
-                try:
-                    os.remove(processed_file)
-                except:
-                    pass
-            return None
-        
-        self.logger.info(f"成功转换: {original_file} -> {output_file}")
-        return output_file
-    
-    def _convert_to_pdf(self, md_file: str) -> Optional[str]:
-        """
-        转换为 PDF 格式
-        先转换为DOCX，然后转为PDF
-        """
-        # 先转为DOCX
-        docx_file = self._convert_to_docx(md_file)
-        if not docx_file:
-            return None
-        
-        # 转换DOCX为PDF
-        pdf_file = self._convert_docx_to_pdf(docx_file)
-        return pdf_file
-    
-    def _convert_to_html(self, md_file: str) -> Optional[str]:
-        """
-        转换为 HTML 格式
-        迁移自 tools/md_to_docx.py 的 convert_md_to_html 函数
-        """
-        input_path = Path(md_file)
-        output_path = Path(self.output_dir)
-        output_path.mkdir(parents=True, exist_ok=True)
-        
-        output_file = str(output_path / f"{input_path.stem}.html")
-        
-        if not input_path.exists():
-            self.logger.error(f"找不到输入文件: {md_file}")
-            return None
-        
-        try:
-            # 处理标题前的序号等
-            processed_file = self._remove_title_numbers(md_file)
-            
-            # 设置资源路径列表
-            resource_paths = [
-                str(input_path.parent),
-                str(input_path.parent.parent)
-            ]
-            resource_path_arg = '--resource-path=' + os.pathsep.join(resource_paths)
-            
-            # 构建pandoc命令
-            cmd = [
-                'pandoc',
-                processed_file,
-                '-o', output_file,
-                '--standalone',
-                '--metadata', f'title={self._get_title_from_md(processed_file)}',
-                resource_path_arg,
-                '--quiet'
-            ]
-            
-            # 检查pandoc是否可用
-            if not self._check_tool_availability("pandoc"):
-                self.logger.error(f"找不到pandoc命令，无法转换HTML文件: {md_file}")
-                return None
-            
-            # 执行pandoc命令
-            try:
-                process = subprocess.Popen(
-                    cmd, 
-                    stdout=subprocess.PIPE, 
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    encoding='utf-8',
-                    errors='replace'
-                )
-                stdout, stderr = process.communicate()
-                
-                if process.returncode != 0:
-                    self.logger.error(f"Pandoc HTML转换失败: {stderr}")
-                    return None
-            except FileNotFoundError:
-                self.logger.error("无法执行pandoc命令，请确保pandoc已正确安装")
-                return None
-            
-            # 后处理HTML文件，添加样式和目录
-            self._post_process_html(output_file, processed_file)
-            
-            # 清理临时文件
-            if processed_file != md_file:
-                try:
-                    os.remove(processed_file)
-                except Exception as e:
-                    self.logger.warning(f"无法删除临时文件 {processed_file}: {e}")
-            
-            self.logger.info(f"成功生成HTML: {md_file} -> {output_file}")
-            return output_file
-            
-        except Exception as e:
-            self.logger.error(f"处理HTML文件 {md_file} 时出错: {str(e)}")
-            return None
-    
-    # 以下是从 tools/md_to_docx.py 迁移的辅助函数
-    
+
     def _check_tool_availability(self, tool_name: str) -> bool:
-        """检查外部工具是否可用"""
+        """Checks if an external tool is available in the system's PATH."""
         return shutil.which(tool_name) is not None
-    
-    def _get_title_from_md(self, md_file: str) -> str:
-        """从markdown文件中提取标题"""
+
+    def _get_title_from_md(self, content: str, fallback_path: Path) -> str:
+        """Extracts title from Markdown content."""
         try:
-            with open(md_file, 'r', encoding='utf-8') as f:
-                first_line = f.readline().strip()
-                if first_line.startswith('# '):
-                    return first_line[2:].strip()
-        except Exception:
-            pass
-        return os.path.splitext(os.path.basename(md_file))[0]
+            pandoc_title_match = re.search(r'^---\s*\ntitle:\s*(.+?)\n', content, re.DOTALL)
+            if pandoc_title_match:
+                return pandoc_title_match.group(1).strip()
+            
+            first_heading_match = re.search(r'^#\s+(.+)', content, re.MULTILINE)
+            if first_heading_match:
+                return first_heading_match.group(1).strip()
+        except Exception as e:
+            self.logger.warning(f"Could not extract title due to error: {e}")
+        
+        return fallback_path.stem
+
+    def _preprocess_markdown(self, md_file_path: str) -> (Optional[str], List[str]):
+        """
+        Pre-processes Markdown content for conversion.
+        """
+        try:
+            with open(md_file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+        except Exception as e:
+            self.logger.error(f"Cannot read Markdown file {md_file_path}: {e}")
+            return None, []
+
+        temp_files = []
+        md_dir = Path(md_file_path).parent
+
+        content = re.sub(r'^(#+)\s*(\d+(\.\d+)*\s+)', r'\1 ', content, flags=re.MULTILINE)
+        content = re.sub(r'^(#+)\s*(\d+(\.\d+)*\.\s+)', r'\1 ', content, flags=re.MULTILINE)
+        content = re.sub(r'(!\[)(fig:.*?)(\])', r'\1\3', content)
+
+        if self._check_tool_availability("mmdc"):
+            def replace_mermaid(match):
+                code = match.group(1)
+                img_path = md_dir / f"mermaid-generated-{os.urandom(4).hex()}.png"
+                try:
+                    subprocess.run(['mmdc', '-i', '-', '-o', str(img_path)], input=code.encode('utf-8'), check=True, capture_output=True)
+                    temp_files.append(str(img_path))
+                    return f"![Mermaid Diagram]({img_path.name})"
+                except (subprocess.CalledProcessError, FileNotFoundError) as e:
+                    self.logger.error(f"Mermaid conversion failed: {e.stderr if hasattr(e, 'stderr') else e}")
+                    return f"```mermaid\n{code}\n```"
+            content = re.sub(r'```mermaid\n(.*?)\n```', replace_mermaid, content, flags=re.DOTALL)
+
+        return content, temp_files
     
+    def _cleanup_temp_files(self, temp_files: List[str]):
+        """清理临时文件"""
+        for temp_file in temp_files:
+            try:
+                if os.path.exists(temp_file):
+                    os.remove(temp_file)
+            except Exception as e:
+                self.logger.warning(f"无法删除临时文件 {temp_file}: {e}")
+
+    def _convert_to_docx(self, input_file: str, to_pdf: bool = False) -> Optional[str]:
+        """Converts a Markdown file to DOCX."""
+        input_path = Path(input_file)
+        
+        if to_pdf:
+            output_file_path = self.output_dir / f"{input_path.stem}_temp_for_pdf_{os.getpid()}.docx"
+        else:
+            output_file_path = self.output_dir / f"{input_path.stem}.docx"
+
+        processed_content, temp_images = self._preprocess_markdown(input_file)
+        if processed_content is None:
+            return None
+
+        processed_md_file = input_path.with_name(f"{input_path.stem}_processed_{os.getpid()}.md")
+        processed_md_file.write_text(processed_content, encoding='utf-8')
+        
+        all_temp_files = temp_images + [str(processed_md_file)]
+
+        try:
+            if not self._check_tool_availability("pandoc"):
+                self.logger.error("Pandoc not found. Please install it to convert files.")
+                return None
+
+            resource_path_arg = '--resource-path=' + str(input_path.parent)
+            use_template = self.template_path and Path(self.template_path).exists() and WIN32COM_AVAILABLE
+            
+            if use_template:
+                content_docx = self.output_dir / f"{input_path.stem}_content_{os.getpid()}.docx"
+                all_temp_files.append(str(content_docx))
+
+                cmd = ['pandoc', str(processed_md_file), '-o', str(content_docx), resource_path_arg, '--quiet']
+                subprocess.run(cmd, check=True, capture_output=True, text=True, encoding='utf-8')
+
+                title = self._get_title_from_md(processed_content, input_path)
+
+                doc_tpl = DocxTemplate(self.template_path)
+                context = {
+                    "py_project_name": self.project_name, "title": title,
+                    "py_document_no": "P" + datetime.now().strftime("%Y%m%d%H%M%S"),
+                    "py_date": datetime.now().strftime("%Y-%m-%d"), "py_author": self.author,
+                    "py_mobilephone": self.mobilephone, "py_email": self.email
+                }
+                doc_tpl.render(context)
+                
+                composer = Composer(doc_tpl)
+                composer.append(Document(content_docx))
+                composer.save(output_file_path)
+                
+                self._update_toc(str(output_file_path))
+
+            else:
+                cmd = ['pandoc', str(processed_md_file), '-o', str(output_file_path), resource_path_arg, '--quiet']
+                subprocess.run(cmd, check=True, capture_output=True, text=True, encoding='utf-8')
+            
+            self.logger.info(f"Successfully converted {input_file} to {output_file_path}")
+            return str(output_file_path)
+
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            self.logger.error(f"Failed during DOCX conversion: {e.stderr if hasattr(e, 'stderr') else e}")
+            return None
+        finally:
+            self._cleanup_temp_files(all_temp_files)
+
+    def _update_toc(self, docx_path: str):
+        """Updates the Table of Contents in a DOCX file using Word COM object."""
+        if not WIN32COM_AVAILABLE:
+            return
+        
+        word = None
+        try:
+            word = Dispatch('Word.Application')
+            doc = word.Documents.Open(str(Path(docx_path).resolve()))
+            doc.Fields.Update()
+            if hasattr(doc, 'TablesOfContents'):
+                for toc in doc.TablesOfContents:
+                    toc.Update()
+            doc.Save()
+            self.logger.info(f"Updated TOC for {docx_path}")
+        except Exception as e:
+            self.logger.error(f"Failed to update TOC for {docx_path}: {e}")
+        finally:
+            if word:
+                if 'doc' in locals() and doc:
+                    doc.Close(False)
+                word.Quit()
+    
+    def _convert_docx_to_pdf(self, docx_path: str) -> Optional[str]:
+        """Converts a DOCX file to PDF."""
+        pdf_path = Path(docx_path).with_suffix('.pdf')
+
+        if WIN32COM_AVAILABLE:
+            word = None
+            try:
+                word = Dispatch('Word.Application')
+                doc = word.Documents.Open(str(Path(docx_path).resolve()))
+                doc.SaveAs(str(pdf_path.resolve()), FileFormat=17)
+                self.logger.info(f"Successfully created PDF with Word: {pdf_path}")
+                return str(pdf_path)
+            except Exception as e:
+                self.logger.error(f"Word PDF conversion failed: {e}")
+            finally:
+                if word:
+                    if 'doc' in locals() and doc:
+                        doc.Close(False)
+                    word.Quit()
+
+        if self._check_tool_availability("soffice"):
+            try:
+                cmd = ["soffice", "--headless", "--convert-to", "pdf", "--outdir", str(pdf_path.parent), docx_path]
+                subprocess.run(cmd, check=True, capture_output=True)
+                self.logger.info(f"Successfully created PDF with LibreOffice: {pdf_path}")
+                return str(pdf_path)
+            except (subprocess.CalledProcessError, FileNotFoundError) as e:
+                self.logger.warning(f"LibreOffice conversion failed: {e.stderr if hasattr(e, 'stderr') else e}")
+
+        self.logger.error("No suitable tool (Word/LibreOffice) found for PDF conversion.")
+        return None
+
+    def _convert_to_html(self, input_file: str) -> Optional[str]:
+        """Converts a Markdown file to a styled HTML file."""
+        input_path = Path(input_file)
+        output_file_path = self.output_dir / f"{input_path.stem}.html"
+
+        processed_content, temp_images = self._preprocess_markdown(input_file)
+        if processed_content is None:
+            return None
+
+        processed_md_file = input_path.with_name(f"{input_path.stem}_processed_{os.getpid()}.md")
+        processed_md_file.write_text(processed_content, encoding='utf-8')
+        
+        all_temp_files = temp_images + [str(processed_md_file)]
+
+        try:
+            if not self._check_tool_availability("pandoc"):
+                self.logger.error("Pandoc not found. Please install it to convert files.")
+                return None
+            
+            resource_path_arg = '--resource-path=' + str(input_path.parent)
+            cmd = ['pandoc', str(processed_md_file), '--from', 'markdown+smart', '--to', 'html', resource_path_arg]
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True, encoding='utf-8')
+            html_body = result.stdout
+            
+            heading_counts = {}
+            def add_anchor_to_heading(match):
+                level, title = len(match.group(1)), match.group(2).strip()
+                base_id = re.sub(r'[^\w\s-]', '', title).strip().lower()
+                base_id = re.sub(r'[\s-]+', '-', base_id)
+                count = heading_counts.get(base_id, 0)
+                heading_counts[base_id] = count + 1
+                anchor_id = f"{base_id}-{count}" if count > 0 else base_id
+                return f'<h{level} id="{anchor_id}">{title}</h{level}>'
+            html_body = re.sub(r'<h([1-6])>(.*?)</h\1>', add_anchor_to_heading, html_body)
+
+            toc_html = self._generate_html_toc(processed_content)
+            title = self._get_title_from_md(processed_content, input_path)
+            css = self._get_html_theme_css("github_floating_toc")
+            
+            final_html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title}</title>
+    <style>{css}</style>
+</head>
+<body>
+    <div class="container">
+        <div class="toc-container">{toc_html}</div>
+        <div class="content-container">{html_body}</div>
+    </div>
+</body>
+</html>"""
+
+            output_file_path.write_text(final_html, encoding='utf-8')
+            self.logger.info(f"Successfully created HTML: {output_file_path}")
+            return str(output_file_path)
+
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            self.logger.error(f"Failed during HTML conversion: {e.stderr if hasattr(e, 'stderr') else e}")
+            return None
+        finally:
+            self._cleanup_temp_files(all_temp_files)
+
+    def _generate_html_toc(self, content: str) -> str:
+        """Generates a nested HTML list for the Table of Contents."""
+        toc_lines = ['<nav class="toc"><ul>']
+        heading_counts = {}
+        for line in content.splitlines():
+            match = re.match(r'^(#+)\s+(.*)', line)
+            if match:
+                level, title = len(match.group(1)), match.group(2).strip()
+                base_id = re.sub(r'[^\w\s-]', '', title).strip().lower()
+                base_id = re.sub(r'[\s-]+', '-', base_id)
+                count = heading_counts.get(base_id, 0)
+                heading_counts[base_id] = count + 1
+                anchor_id = f"{base_id}-{count}" if count > 0 else base_id
+                toc_lines.append(f'<li class="toc-level-{level}"><a href="#{anchor_id}">{title}</a></li>')
+        toc_lines.append('</ul></nav>')
+        return '\n'.join(toc_lines)
+
+    def _get_html_theme_css(self, theme_name: str) -> str:
+        """Returns CSS for the HTML output."""
+        github_floating_toc = """
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; background-color: #fff; margin: 0; padding: 0; }
+        .container { max-width: 1200px; margin: 20px auto; display: flex; flex-direction: row; align-items: flex-start; }
+        .toc-container { width: 250px; flex-shrink: 0; position: -webkit-sticky; position: sticky; top: 20px; height: calc(100vh - 40px); overflow-y: auto; padding-right: 20px; border-right: 1px solid #e1e4e8; }
+        .content-container { flex-grow: 1; padding-left: 30px; max-width: 800px; }
+        .toc ul { list-style: none; padding-left: 0; } .toc li a { color: #0366d6; text-decoration: none; display: block; padding: 4px 0; font-size: 14px; }
+        .toc li a:hover { text-decoration: underline; }
+        .toc-level-1 { padding-left: 5px; font-weight: 600; } .toc-level-2 { padding-left: 20px; } .toc-level-3 { padding-left: 35px; } .toc-level-4 { padding-left: 50px; }
+        h1, h2, h3, h4, h5, h6 { font-weight: 600; line-height: 1.25; margin-top: 24px; margin-bottom: 16px; border-bottom: 1px solid #eaecef; padding-bottom: .3em; }
+        h1 { font-size: 2em; } h2 { font-size: 1.5em; } h3 { font-size: 1.25em; }
+        p { margin-top: 0; margin-bottom: 16px; } a { color: #0366d6; text-decoration: none; } a:hover { text-decoration: underline; }
+        code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace; font-size: 13px; }
+        pre { word-wrap: normal; padding: 16px; overflow: auto; line-height: 1.45; background-color: #f6f8fa; border-radius: 3px; }
+        code { background-color: rgba(27,31,35,.05); padding: .2em .4em; margin: 0; border-radius: 3px; }
+        pre > code { padding: 0; margin: 0; background-color: transparent; border: 0; }
+        table { border-collapse: collapse; } th, td { border: 1px solid #ddd; padding: 8px; } th { background-color: #f2f2f2; }
+        img { max-width: 100%; } blockquote { color: #6a737d; border-left: .25em solid #dfe2e5; padding: 0 1em; margin-left: 0; }
+        """
+        return github_floating_toc
+
     def _remove_title_numbers(self, input_file: str) -> str:
         """
         处理Markdown文件，去掉标题前面的序号（如1.1、2.3.4等格式），
@@ -414,58 +445,6 @@ class MdToOfficeConverter(BaseConverter):
         """删除图片标题（占位符实现）"""
         # 这里可以添加具体的图片标题删除逻辑
         return content
-    
-    def _convert_docx_to_pdf(self, docx_path: str) -> Optional[str]:
-        """
-        将docx转换为PDF
-        迁移自 tools/md_to_docx.py 的 convert_docx_to_pdf 函数
-        """
-        pdf_path = str(Path(docx_path).with_suffix('.pdf'))
-        
-        # Windows系统使用Word COM对象
-        if WIN32COM_AVAILABLE:
-            word = Dispatch('Word.Application')
-            word.Visible = False
-            
-            try:
-                doc = word.Documents.Open(str(Path(docx_path).resolve()))
-                pdf_format = 17
-                doc.SaveAs(str(Path(pdf_path).resolve()), FileFormat=pdf_format)
-                doc.Close()
-                
-                self.logger.info(f"成功生成PDF: {pdf_path}")
-                return pdf_path
-            except Exception as e:
-                self.logger.error(f"转换PDF失败: {docx_path} -> {pdf_path}")
-                self.logger.error(f"错误: {str(e)}")
-                return None
-            finally:
-                word.Quit()
-        
-        # 非Windows系统尝试使用其他工具
-        else:
-            # 尝试使用LibreOffice
-            if self._check_tool_availability("soffice"):
-                try:
-                    cmd = [
-                        "soffice",
-                        "--headless",
-                        "--convert-to", "pdf",
-                        "--outdir", str(Path(pdf_path).parent),
-                        str(docx_path)
-                    ]
-                    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
-                    
-                    if result.returncode == 0:
-                        self.logger.info(f"成功使用LibreOffice生成PDF: {pdf_path}")
-                        return pdf_path
-                    else:
-                        self.logger.error(f"LibreOffice转换失败: {result.stderr}")
-                except Exception as e:
-                    self.logger.error(f"LibreOffice转换错误: {str(e)}")
-            
-            self.logger.warning("无法转换为PDF，跳过PDF生成")
-            return None
     
     def _copy_template_and_append_content(self, template_path: str, content_path: str, title: str) -> str:
         """
