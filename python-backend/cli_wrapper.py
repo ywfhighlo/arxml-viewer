@@ -12,6 +12,12 @@ import os
 from pathlib import Path
 from processors import VSCodeBackend
 
+# 强制stdout和stderr使用UTF-8编码
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
+if sys.stderr.encoding != 'utf-8':
+    sys.stderr.reconfigure(encoding='utf-8')
+
 def main():
     """主入口函数"""
     parser = argparse.ArgumentParser(description='VSCode ARXML/XDM后端处理器')
