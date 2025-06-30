@@ -1,0 +1,67 @@
+# Office & Docs Converter - Python 后端依赖
+# 基于 tools/md_to_docx.py 等成熟工具的依赖整合
+
+# 核心转换依赖
+pandoc-attributes
+Pillow>=9.0.0
+
+# Office文档处理
+python-docx>=0.8.11
+# docxtpl兼容性处理  
+docxtpl>=0.16.0,<0.21.0; sys_platform == 'win32'
+docxtpl>=0.16.0; sys_platform == 'darwin' or sys_platform == 'linux'
+# docx文件组合工具
+docxcompose; sys_platform == 'win32' or sys_platform == 'darwin' or sys_platform == 'linux'
+
+# Windows特定依赖
+pywin32; sys_platform == 'win32'
+
+# SVG转换依赖
+cairosvg
+svglib
+reportlab
+cairocffi
+cssselect2
+defusedxml
+tinycss2
+webencodings
+# 跨平台Cairo处理
+pycairo; sys_platform != 'darwin'
+cairocffi; sys_platform == 'darwin'
+
+# PDF处理
+pypdf
+pytesseract
+pdf2image
+
+# Excel等Office文档处理
+docx2txt
+pandas
+openpyxl
+tabulate
+python-pptx
+xlrd>=2.0.1
+html2text
+
+# Markdown 处理
+markdown>=3.4.0
+
+# 基础依赖
+lxml
+cffi
+chardet
+pycparser
+Jinja2
+MarkupSafe
+
+# Mac特定依赖
+appscript; sys_platform == 'darwin'
+
+# 类型注解支持
+typing-extensions>=4.0.0
+
+# 注意：需要系统安装以下非Python依赖：
+# 1. pandoc - Mac: brew install pandoc, Windows: 下载安装包
+# 2. Office处理: Windows需要Microsoft Word, Mac可用LibreOffice
+# 3. Tesseract OCR: Mac: brew install tesseract
+# 4. Cairo图形库: Mac: brew install cairo 

@@ -1,9 +1,0 @@
-# Python依赖包
-# 这些是现有库已经使用的依赖
-
-# 基础依赖
-pathlib 
-
-# Dependencies for the Python backend
-six>=1.16.0
-lxml>=4.9.0 

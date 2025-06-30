@@ -1,9 +1,25 @@
 # Exclude development files and folders
 .vscode/
-.vscode-test/
 node_modules/
+.vscode-test/
+
+# Source code and test files that are compiled
 src/
 test/
+
+# Python specific ignores
+.venv/
+backend/**/__pycache__/
+**/__pycache__/
+
+# Old tools directory
+tools/
+
+# Test artifacts
+test_output/
+*.md
+test.html
+test.svg
 
 # Exclude build artifacts
 *.vsix
@@ -13,3 +29,5 @@ test/
 .gitignore
 package-lock.json
 tsconfig.json
+README.md
+DESIGN.md

@@ -1,304 +1,117 @@
 {
-  "name": "arxml-viewer",
-  "displayName": "ARXML Viewer",
-  "description": "ARXML 文件查看和编辑工具，提供类似 Vector DaVinci Configurator 的界面体验",
-  "version": "1.0.0",
+  "name": "markdown-docs-converter",
+  "displayName": "Markdown Docs Converter",
+  "description": "Convert between Markdown, Office documents, PDFs, and diagrams right from the context menu.",
+  "version": "0.1.0",
+  "author": "余文锋",
   "publisher": "ywfhighlo",
-  "author": {
-    "name": "余文锋",
-    "email": "909188787@qq.com"
-  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/yuwenfeng/arxml-viewer.git"
+    "url": "https://github.com/ywfhighlo/markdown-docs-converter.git"
   },
-  "bugs": {
-    "url": "https://github.com/yuwenfeng/arxml-viewer/issues",
-    "email": "909188787@qq.com"
+  "engines": {
+    "vscode": "^1.80.0"
   },
-  "homepage": "https://github.com/yuwenfeng/arxml-viewer#readme",
-  "license": "MIT",
   "categories": [
-    "Viewers",
     "Other"
   ],
-  "keywords": [
-    "arxml",
-    "xdm",
-    "xml",
-    "autosar",
-    "tree",
-    "preview",
-    "automotive"
-  ],
-  "engines": {
-    "vscode": "^1.60.0"
-  },
   "activationEvents": [
-    "onCommand:arxml.openTreePreview",
-    "onCommand:arxml.openToSide",
-    "onCommand:arxml.expandAll",
-    "onCommand:arxml.collapseAll",
-    "onCommand:arxml.refreshPreview",
-    "onLanguage:arxml",
-    "onLanguage:xdm"
+    "onCommand:markdown-docs-converter.mdToDocx",
+    "onCommand:markdown-docs-converter.mdToPdf",
+    "onCommand:markdown-docs-converter.mdToHtml",
+    "onCommand:markdown-docs-converter.officeToMd",
+    "onCommand:markdown-docs-converter.diagramToPng"
   ],
-  "main": "./build/extension.js",
+  "main": "./out/extension.js",
   "contributes": {
-    "views": {
-    },
-    "customEditors": [
-      {
-        "viewType": "arxmlTreePreview",
-        "displayName": "ARXML树形预览",
-        "selector": [
-          {
-            "filenamePattern": "*.arxml"
-          },
-          {
-            "filenamePattern": "*.xdm"
-          },
-          {
-            "filenamePattern": "*.bmd"
-          },
-          {
-            "filenamePattern": "*.xml"
-          }
-        ],
-        "priority": "default"
-      }
-    ],
     "commands": [
       {
-        "command": "arxml.openTreePreview",
-        "title": "打开树形预览",
-        "category": "ARXML",
-        "icon": "$(open-preview)"
+        "command": "markdown-docs-converter.mdToDocx",
+        "title": "Convert to DOCX"
       },
       {
-        "command": "arxml.openToSide",
-        "title": "在侧边打开ARXML预览",
-        "category": "ARXML",
-        "icon": "$(split-horizontal)"
+        "command": "markdown-docs-converter.mdToPdf",
+        "title": "Convert to PDF"
       },
       {
-        "command": "arxml.refreshPreview",
-        "title": "刷新预览",
-        "icon": "$(refresh)"
+        "command": "markdown-docs-converter.mdToHtml",
+        "title": "Convert to HTML"
       },
       {
-        "command": "arxml.searchNode",
-        "title": "搜索节点",
-        "icon": "$(search)"
+        "command": "markdown-docs-converter.officeToMd",
+        "title": "Convert to Markdown"
       },
       {
-        "command": "arxml.gotoSource",
-        "title": "跳转到源位置",
-        "icon": "$(go-to-file)"
-      },
-      {
-        "command": "arxml.expandAll",
-        "title": "展开所有",
-        "icon": "$(expand-all)"
-      },
-      {
-        "command": "arxml.collapseAll",
-        "title": "折叠所有",
-        "icon": "$(collapse-all)"
-      },
-      {
-        "command": "arxml.validateFile",
-        "title": "验证文件",
-        "icon": "$(check)"
-      },
-      {
-        "command": "arxml.showBackendInfo",
-        "title": "显示后端信息",
-        "icon": "$(info)"
-      },
-      {
-        "command": "arxml.showLogs",
-        "title": "显示通信日志",
-        "icon": "$(output)"
-      },
-      {
-        "command": "arxml.testCustomEditor",
-        "title": "测试自定义编辑器",
-        "category": "ARXML",
-        "icon": "$(debug-start)"
-      },
-      {
-        "command": "arxml.expandAllFromNode",
-        "title": "展开此节点及所有子节点",
-        "icon": "$(expand-all)"
-      },
-      {
-        "command": "arxml.collapseAllFromNode",
-        "title": "折叠此节点及所有子节点",
-        "icon": "$(collapse-all)"
-      },
-      {
-        "command": "arxml.refreshPropertyPanel",
-        "title": "刷新属性面板",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "arxml.editParameter",
-        "title": "编辑参数",
-        "icon": "$(edit)"
+        "command": "markdown-docs-converter.diagramToPng",
+        "title": "Convert to PNG"
       }
     ],
     "menus": {
-      "editor/title": [
-        {
-          "command": "arxml.openToSide",
-          "when": "resourceExtname =~ /\\.(arxml|xdm|xml)$/ && !activeCustomEditorId",
-          "group": "navigation@1"
-        },
-        {
-          "command": "arxml.refreshPreview",
-          "when": "activeCustomEditorId == arxmlTreePreview",
-          "group": "navigation@1"
-        },
-        {
-          "command": "arxml.searchNode",
-          "when": "activeCustomEditorId == arxmlTreePreview",
-          "group": "navigation@2"
-        },
-        {
-          "command": "arxml.expandAll",
-          "when": "activeCustomEditorId == arxmlTreePreview",
-          "group": "navigation@3"
-        },
-        {
-          "command": "arxml.collapseAll",
-          "when": "activeCustomEditorId == arxmlTreePreview",
-          "group": "navigation@4"
-        }
-      ],
-      "view/title": [
-        {
-          "command": "arxml.refreshPreview",
-          "when": "view == arxmlTreeView",
-          "group": "navigation@1"
-        },
-        {
-          "command": "arxml.showLogs",
-          "when": "view == arxmlTreeView",
-          "group": "navigation@2"
-        },
-        {
-          "command": "arxml.searchNode",
-          "when": "view == arxmlTreeView",
-          "group": "navigation@3"
-        },
-        {
-          "command": "arxml.expandAll",
-          "when": "view == arxmlTreeView",
-          "group": "navigation@4"
-        },
-        {
-          "command": "arxml.collapseAll",
-          "when": "view == arxmlTreeView",
-          "group": "navigation@5"
-        },
-        {
-          "command": "arxml.refreshPropertyPanel",
-          "when": "view == arxmlPropertyPanel",
-          "group": "navigation@1"
-        }
-      ],
-      "view/item/context": [
-        {
-          "command": "arxml.expandAllFromNode",
-          "when": "view == arxmlTreeView && viewItem == container",
-          "group": "1_expand@1"
-        },
-        {
-          "command": "arxml.collapseAllFromNode",
-          "when": "view == arxmlTreeView && viewItem == container",
-          "group": "1_expand@2"
-        },
-        {
-          "command": "arxml.gotoSource",
-          "when": "view == arxmlTreeView",
-          "group": "2_navigation@1"
-        },
-        {
-          "command": "arxml.editParameter",
-          "when": "view == arxmlPropertyPanel && viewItem == parameter",
-          "group": "1_edit@1"
-        }
-      ],
       "explorer/context": [
         {
-          "command": "arxml.openToSide",
-          "when": "resourceExtname =~ /\\.(arxml|xdm|xml)$/",
-          "group": "navigation"
-        }
-      ],
-      "commandPalette": [
-        {
-          "command": "arxml.openTreePreview",
-          "when": "resourceExtname =~ /\\.(arxml|xdm|xml)$/"
+          "when": "resourceLangId == markdown",
+          "command": "markdown-docs-converter.mdToDocx",
+          "group": "2_conversion@1"
         },
         {
-          "command": "arxml.openToSide",
-          "when": "resourceExtname =~ /\\.(arxml|xdm|xml)$/"
+          "when": "resourceLangId == markdown",
+          "command": "markdown-docs-converter.mdToPdf",
+          "group": "2_conversion@2"
+        },
+        {
+          "when": "resourceLangId == markdown",
+          "command": "markdown-docs-converter.mdToHtml",
+          "group": "2_conversion@3"
+        },
+        {
+          "when": "resourceExtname == .docx || resourceExtname == .xlsx || resourceExtname == .pdf",
+          "command": "markdown-docs-converter.officeToMd",
+          "group": "2_conversion@1"
+        },
+        {
+          "when": "resourceExtname == .svg || resourceExtname == .drawio",
+          "command": "markdown-docs-converter.diagramToPng",
+          "group": "2_conversion@1"
+        },
+        {
+          "when": "resourceIsFolder",
+          "command": "markdown-docs-converter.mdToDocx",
+          "group": "2_conversion@1"
+        },
+        {
+          "when": "resourceIsFolder",
+          "command": "markdown-docs-converter.mdToPdf",
+          "group": "2_conversion@2"
+        },
+        {
+          "when": "resourceIsFolder",
+          "command": "markdown-docs-converter.mdToHtml",
+          "group": "2_conversion@3"
+        },
+        {
+          "when": "resourceIsFolder",
+          "command": "markdown-docs-converter.officeToMd",
+          "group": "2_conversion@4"
+        },
+        {
+          "when": "resourceIsFolder",
+          "command": "markdown-docs-converter.diagramToPng",
+          "group": "2_conversion@5"
         }
       ]
     },
     "configuration": {
-      "title": "ARXML Tree Previewer",
+      "title": "Markdown Docs Converter",
       "properties": {
-        "arxmlTreePreviewer.pythonPath": {
+        "markdown-docs-converter.outputDirectory": {
+          "type": "string",
+          "default": "./converted",
+          "description": "Directory where converted files will be saved"
+        },
+        "markdown-docs-converter.pythonPath": {
           "type": "string",
           "default": "python3",
-          "description": "Python解释器路径",
-          "scope": "application"
-        },
-        "arxmlTreePreviewer.enableAutoPreview": {
-          "type": "boolean",
-          "default": true,
-          "description": "自动预览文件",
-          "scope": "window"
-        },
-        "arxmlTreePreviewer.defaultExpansionLevel": {
-          "type": "number",
-          "default": 2,
-          "description": "默认展开层级",
-          "minimum": 0,
-          "maximum": 10,
-          "scope": "window"
-        },
-        "arxmlTreePreviewer.showAttributes": {
-          "type": "boolean",
-          "default": true,
-          "description": "显示节点属性",
-          "scope": "window"
-        },
-        "arxmlTreePreviewer.maxPreviewSize": {
-          "type": "number",
-          "default": 10485760,
-          "description": "最大预览文件大小（字节）",
-          "minimum": 1024,
-          "scope": "window"
-        },
-        "arxmlTreePreviewer.enableVerboseLogging": {
-          "type": "boolean",
-          "default": false,
-          "description": "启用详细日志",
-          "scope": "window"
-        },
-        "arxmlTreePreviewer.previewPosition": {
-          "type": "string",
-          "default": "beside",
-          "enum": [
-            "beside",
-            "active"
-          ],
-          "description": "预览位置：beside - 在编辑器旁边，active - 在当前编辑器位置",
-          "scope": "window"
+          "description": "Path to Python executable"
         }
       }
     }
@@ -307,23 +120,17 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
+    "package": "vsce package",
+    "install-deps": "npm install && pip3 install -r backend/requirements.txt",
     "lint": "eslint src --ext ts",
-    "test": "node ./build/test/runTest.js",
-    "package": "vsce package -o build/"
+    "test": "npm run compile && node ./out/test/runTest.js"
   },
   "devDependencies": {
-    "@types/node": "16.x",
-    "@types/vscode": "^1.60.0",
-    "@typescript-eslint/eslint-plugin": "^5.31.0",
-    "@typescript-eslint/parser": "^5.31.0",
-    "@vscode/test-electron": "^2.1.5",
-    "@vscode/vsce": "^2.15.0",
-    "eslint": "^8.20.0",
-    "typescript": "^4.7.4"
-  },
-  "dependencies": {
-    "build": "^0.1.4",
-    "vsce": "^2.15.0"
+    "@types/vscode": "^1.80.0",
+    "@types/node": "20.x",
+    "typescript": "^5.0.0",
+    "eslint": "^8.40.0",
+    "@typescript-eslint/parser": "^5.59.0",
+    "@typescript-eslint/eslint-plugin": "^5.59.0"
   }
-}
+} 

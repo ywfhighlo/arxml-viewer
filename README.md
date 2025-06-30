@@ -1,208 +1,52 @@
-# ARXML Viewer - VSCode 扩展
+# Markdown Docs Converter
 
-一个ARXML 文件查看和编辑工具。
+> A powerful VS Code extension to convert files between Markdown, Office formats (DOCX), PDF, and HTML right from the context menu.
 
-## 👨‍💻 作者信息
+Created with ❤️ by **余文锋**
 
-**作者**: 余文锋  
-**邮箱**: 909188787@qq.com  
-**项目**: ARXML Viewer VSCode Extension
+## 🎯 功能特性
 
-## 🎯 项目概述
+### Markdown 转换
+- **Markdown → DOCX**: 将 `.md` 文件转换为 Word 文档
+- **Markdown → PDF**: 将 `.md` 文件转换为 PDF 文档  
+- **Markdown → HTML**: 将 `.md` 文件转换为 HTML 网页
 
-ARXML Viewer 是一个 VSCode 扩展，用于查看和编辑 AUTOSAR ARXML 配置文件。它提供了直观的树形结构展示和表单化的参数编辑界面，让 AUTOSAR 开发者能够更高效地处理复杂的配置文件。
+### Office 文档转换
+- **DOCX → Markdown**: 将 Word 文档转换为 `.md` 文件
+- **XLSX → Markdown**: 将 Excel 表格转换为 `.md` 文件
+- **PDF → Markdown**: 将 PDF 文档转换为 `.md` 文件
 
-## ✨ 核心功能
+### 图表转换
+- **SVG → PNG**: 将矢量图转换为位图
+- **Draw.io → PNG**: 将 Draw.io 图表转换为 PNG 图片
 
-### 🌳 DaVinci 风格的界面
-- **左侧树状视图**: 层次化显示 ARXML 文件结构
-- **右侧参数编辑器**: 表单化的参数编辑界面
-- **顶部面包屑导航**: 显示当前选中节点的路径
-- **专业的视觉设计**: 模仿 Vector DaVinci Configurator 的界面风格
+## 🚀 使用方法
 
-### 📁 智能文件解析
-- **AUTOSAR 4.x 支持**: 完整支持 AUTOSAR 4.x 标准的 ARXML 文件
-- **多格式兼容**: 支持 ARXML、XDM、XML 文件格式
-- **智能类型检测**: 自动识别文件类型并选择合适的解析器
-- **高性能解析**: 基于 Python 后端的高效解析引擎
+1. 在 VS Code 资源管理器中右键点击文件或文件夹
+2. 在上下文菜单中选择相应的转换选项
+3. 转换完成后会在配置的输出目录中生成文件
 
-### 🎨 用户体验
-- **即时预览**: 点击 ARXML, XDM 或 XML 文件即可查看结构
-- **交互式导航**: 支持展开/折叠、搜索、筛选
-- **参数编辑**: 根据参数类型提供合适的输入控件
-- **实时反馈**: 参数修改时的即时验证和提示
+## ⚙️ 配置选项
 
-## 🚀 快速开始
+- `office-docs-converter.outputDirectory`: 输出目录路径（默认: `./converted`）
+- `office-docs-converter.pythonPath`: Python 解释器路径（默认: `python3`）
 
-### 安装和使用
+## 🏗️ 开发状态
 
-1. **安装扩展**
-   ```bash
-   # 开发版本 - 在项目根目录运行
-   npm install
-   npm run compile
-   npm run package
-   ```
+当前处于**阶段一**完成状态：
+- ✅ 项目框架搭建完成
+- ✅ 前端 TypeScript 代码实现
+- ✅ 后端 Python 架构设计
+- ✅ 基础转换器类定义
 
-2. **打开配置文件**
-   - 在 VSCode 中打开任意 `.arxml`、`.xdm` 或 `.xml` 文件
-   - 扩展会自动激活并显示自定义编辑器
+**下一步**: 从 `/tools` 目录迁移成熟的转换逻辑到对应的转换器类中。
 
-3. **浏览和编辑**
-   - 使用左侧树状视图导航文件结构
-   - 点击容器节点查看其参数
-   - 在右侧面板中编辑参数值
+## 📦 技术架构
 
-### 支持的文件格式
+- **前端**: TypeScript + VS Code Extension API
+- **后端**: Python + 面向对象转换器架构
+- **通信**: JSON 格式的命令行接口
 
-| 格式 | 扩展名 | 描述 |
-|------|--------|------|
-| ARXML | `.arxml` | AUTOSAR XML 配置文件 |
-| XDM | `.xdm` | 扩展数据模型文件 |
-| XML | `.xml` | 通用 XML 文件 |
+## 🔧 开发说明
 
-## 🏗️ 技术架构
-
-### 前端 (TypeScript)
-- **VSCode 扩展 API**: 集成到 VSCode 编辑器
-- **自定义编辑器**: 提供专门的 ARXML 查看界面
-- **Webview**: 渲染复杂的树形和表单界面
-- **响应式设计**: 适配不同屏幕尺寸
-
-### 后端 (Python)
-- **ARXML 解析器**: 基于 AUTOSAR 标准的解析引擎
-- **多格式支持**: XML、XDM、ARXML 文件处理
-- **数据转换**: 将解析结果转换为前端可用的格式
-- **性能优化**: 高效的文件处理和数据结构
-
-### 项目结构
-```
-arxml-viewer/
-├── src/                        # TypeScript 源代码 (前端)
-│   ├── customEditor.ts         # 自定义编辑器 UI 和逻辑
-│   ├── extension.ts            # 扩展主入口
-│   ├── models/                 # 数据模型
-│   ├── providers/              # 数据提供者 (树状视图、属性面板)
-│   └── services/               # 服务 (Python后端通信、文件处理等)
-├── python-backend/             # Python 后端
-│   ├── cli_wrapper.py          # 命令行接口
-│   ├── processors.py           # 文件处理器
-│   ├── converters.py           # 数据转换器
-│   └── lib/                    # 解析库核心
-├── test/                       # 测试相关
-├── out/                        # 编译输出目录
-├── package.json                # 项目和依赖配置
-└── README.md                   # 就是你现在看的这个文件 :)
-```
-
-## 🎨 界面特性
-
-### 🧭 面包屑导航
-- 显示当前选中节点的完整路径
-- 支持点击导航到父级节点
-- 动态更新路径信息
-
-### 🌲 智能树状视图
-- 过滤无意义的结构节点（如 CONTAINERS、SUB-CONTAINERS）
-- 图标区分不同元素类型（🏠 根节点、📦 模块、📁 容器）
-- 参数计数显示
-- 平滑的展开/折叠动画
-
-### 📝 表单化参数编辑
-- 参数名和值在同一行显示
-- 根据参数类型自动生成输入控件：
-  - 文本框（字符串/数字）
-  - 下拉菜单（枚举类型）
-  - 复选框（布尔类型）
-- Hover 显示参数描述信息
-- 实时参数修改验证
-- **实时保存功能**: 参数修改后自动保存到ARXML文件
-- **输入验证**: 数字类型验证、长度限制等
-- **错误提示**: 清晰的错误状态显示和错误消息
-- **保存状态反馈**: 实时显示保存状态（成功/失败）
-- **撤销/重做支持**: 集成VSCode的撤销重做系统
-
-## 🔧 开发指南
-
-### 环境要求
-- Node.js 16+ 
-- Python 3.8+
-- VSCode 1.60+
-
-### 开发命令
-```bash
-# 安装依赖
-npm install
-
-# 编译 TypeScript
-npm run compile
-
-# 监听文件变化
-npm run watch
-
-# 打包扩展
-npm run package
-
-# 运行测试
-npm test
-```
-
-### 调试模式
-1. 在 VSCode 中打开项目
-2. 按 F5 启动扩展开发主机
-3. 在新窗口中测试扩展功能
-
-## 📋 待办事项
-
-### 🎯 短期目标
-- [x] **增加 XDM 文件格式支持** ✅
-- [x] **完善参数编辑功能** ✅ 
-  - [x] 实时参数保存到ARXML文件
-  - [x] 输入验证和错误提示
-  - [x] 保存状态反馈
-  - [x] 支持多种参数类型（字符串、数字、布尔、枚举）
-- [ ] 添加搜索和筛选功能
-- [ ] 实现参数约束验证
-- [ ] 优化大文件性能
-
-### 🚀 中期目标
-- [ ] 支持 ARXML 文件验证
-- [ ] 添加语法高亮
-- [ ] 实现批量操作
-- [ ] 集成版本控制
-- [ ] 添加参数历史记录
-- [ ] 实现参数导入/导出
-
-### 🌟 长期目标
-- [ ] 插件市场发布
-- [ ] 多语言支持
-- [ ] 高级编辑功能
-- [ ] 团队协作功能
-- [ ] 云端同步
-- [ ] AI辅助配置建议
-
-## 🤝 贡献指南
-
-欢迎提交 Issue 和 Pull Request！
-
-1. Fork 项目
-2. 创建特性分支
-3. 提交更改
-4. 推送到分支
-5. 创建 Pull Request
-
-## 📄 许可证
-
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
-
-## 📧 联系方式
-
-如有问题或建议，请联系：
-
-**余文锋**  
-📧 邮箱: 909188787@qq.com  
-🐙 GitHub: [项目地址](https://github.com/ywfhighlo/arxml-viewer)
-
----
-
-*让 ARXML 文件编辑变得简单而高效！* ✨ 
+本项目将 `/tools` 目录中的成熟转换脚本重构为结构化的 VS Code 扩展。所有转换逻辑都来源于经过验证的工具，确保转换质量和稳定性。 
