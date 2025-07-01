@@ -53,6 +53,7 @@ class OfficeToMdConverter(BaseConverter):
     
     def __init__(self, output_dir: str, **kwargs):
         super().__init__(output_dir, **kwargs)
+        self.poppler_path = kwargs.get('poppler_path')
         self._check_dependencies()
         
     def _check_dependencies(self):
@@ -243,8 +244,8 @@ class OfficeToMdConverter(BaseConverter):
         """使用OCR处理扫描版PDF"""
         try:
             text = ""
-            # 将PDF转换为图片
-            images = convert_from_path(pdf_path)
+            # 将PDF转换为图片，并传入poppler_path
+            images = convert_from_path(pdf_path, poppler_path=self.poppler_path)
             
             for i, image in enumerate(images):
                 self.logger.info(f"正在OCR第 {i+1}/{len(images)} 页...")

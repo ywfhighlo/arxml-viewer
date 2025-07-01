@@ -38,25 +38,38 @@ export async function handleConvertCommand(
                 fs.mkdirSync(outputDir, { recursive: true });
             }
             
-            // 获取模板配置（对DOCX, PDF, PPTX转换有效）
-            let conversionOptions = null;
+            let conversionOptions: any = null;
+
             if (['md-to-docx', 'md-to-pdf', 'md-to-pptx'].includes(conversionType)) {
-                const useTemplate = config.get<boolean>('useTemplate', true);
-                const templatePath = config.get<string>('templatePath', '');
-                const projectName = config.get<string>('projectName', '');
-                const author = config.get<string>('author', '');
-                const email = config.get<string>('email', '');
-                const mobilephone = config.get<string>('mobilephone', '');
-                const promoteHeadings = config.get<boolean>('promoteHeadings', true);
-                
+                const sharedOptions = {
+                    projectName: config.get<string>('projectName', ''),
+                    author: config.get<string>('author', ''),
+                    email: config.get<string>('email', ''),
+                    mobilephone: config.get<string>('mobilephone', ''),
+                    promoteHeadings: config.get<boolean>('promoteHeadings', true)
+                };
+                conversionOptions = { ...sharedOptions };
+
+                if (conversionType === 'md-to-docx' || conversionType === 'md-to-pdf') {
+                    if (config.get<boolean>('useDocxTemplate', true)) {
+                        let templatePath = config.get<string>('docxTemplatePath', '');
+                        if (!templatePath) {
+                            templatePath = path.join(context.extensionPath, 'backend', 'converters', 'templates', 'template.docx');
+                        }
+                        conversionOptions.templatePath = templatePath;
+                    }
+                } else if (conversionType === 'md-to-pptx') {
+                    if (config.get<boolean>('usePptxTemplate', true)) {
+                        let templatePath = config.get<string>('pptxTemplatePath', '');
+                        if (!templatePath) {
+                            templatePath = path.join(context.extensionPath, 'backend', 'converters', 'templates', 'template.pptx');
+                        }
+                        conversionOptions.templatePath = templatePath;
+                    }
+                }
+            } else if (conversionType === 'office-to-md') {
                 conversionOptions = {
-                    useTemplate,
-                    templatePath,
-                    projectName,
-                    author,
-                    email,
-                    mobilephone,
-                    promoteHeadings
+                    popplerPath: config.get<string>('popplerPath', '')
                 };
             }
             

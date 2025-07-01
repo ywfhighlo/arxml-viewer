@@ -144,45 +144,59 @@
           "markdownDescription": "Path to Python executable. On Windows, this should typically be `python`. On macOS/Linux, it's often `python3`.",
           "scope": "window"
         },
-        "markdown-hub.useTemplate": {
+        "markdown-hub.useDocxTemplate": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "**Enable template usage for DOCX conversion**\n\nWhen enabled, DOCX conversion will use a template file with project information.",
+          "markdownDescription": "**Enable Template for DOCX**\n\nWhen enabled, DOCX conversion will use a template file.",
           "scope": "window",
           "order": 10
         },
-        "markdown-hub.templatePath": {
+        "markdown-hub.docxTemplatePath": {
           "type": "string",
           "default": "",
-          "markdownDescription": "**Path to custom DOCX template file**\n\nLeave empty to use the default template. Click the folder icon to browse for a template file.",
+          "markdownDescription": "**Path to DOCX Template**\n\nLeave empty to use the default template. Click the folder icon to browse for a template file.",
           "scope": "window",
           "order": 11
+        },
+        "markdown-hub.usePptxTemplate": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "**Enable Template for PPTX**\n\nWhen enabled, PPTX conversion will use a template file.",
+          "scope": "window",
+          "order": 12
+        },
+        "markdown-hub.pptxTemplatePath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "**Path to PPTX Template**\n\nLeave empty to use the default template. Click the folder icon to browse for a template file.",
+          "scope": "window",
+          "order": 13
         },
         "markdown-hub.projectName": {
           "type": "string",
           "default": "",
-          "markdownDescription": "**Project name**\n\nThis will be used in the template when converting to DOCX.",
+          "markdownDescription": "**Project Name**\n\nUsed in DOCX and PPTX templates.",
           "scope": "window",
           "order": 20
         },
         "markdown-hub.author": {
           "type": "string",
           "default": "",
-          "markdownDescription": "**Author name**\n\nThis will be used in the template when converting to DOCX.",
+          "markdownDescription": "**Author Name**\n\nUsed in DOCX and PPTX templates.",
           "scope": "window",
           "order": 21
         },
         "markdown-hub.email": {
           "type": "string",
           "default": "",
-          "markdownDescription": "**Email address**\n\nThis will be used in the template when converting to DOCX.",
+          "markdownDescription": "**Email Address**\n\nUsed in DOCX and PPTX templates.",
           "scope": "window",
           "order": 22
         },
         "markdown-hub.mobilephone": {
           "type": "string",
           "default": "",
-          "markdownDescription": "**Mobile phone**\n\nThis will be used in the template when converting to DOCX.",
+          "markdownDescription": "**Mobile Phone**\n\nUsed in DOCX and PPTX templates.",
           "scope": "window",
           "order": 23
         },
@@ -192,6 +206,13 @@
           "markdownDescription": "**Promote Heading Levels**\n\nWhen enabled, shifts heading levels up by one (e.g., `## Chapter 1` becomes Heading 1 in the output). This treats `# Document Title` as a cover page title. Disable this if your document starts with `# Chapter 1` as the first chapter.",
           "scope": "window",
           "order": 30
+        },
+        "markdown-hub.popplerPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "**Path to Poppler installation directory**\n\nRequired for PDF to Markdown conversion on Windows. Provide the path to the Poppler `bin` directory (e.g., `C:\\path\\to\\poppler-23.08.0\\bin`).",
+          "scope": "window",
+          "order": 40
         }
       }
     }

@@ -39,30 +39,20 @@ class MdToOfficeConverter(BaseConverter):
         
         # Get config from kwargs, with defaults
         self.output_format = kwargs.get('output_format', 'docx')
-        self.template_path = kwargs.get('template_path')
+        self.docx_template_path = kwargs.get('docx_template_path')
+        self.pptx_template_path = kwargs.get('pptx_template_path')
         self.project_name = kwargs.get('project_name', '')
         self.author = kwargs.get('author', '')
         self.mobilephone = kwargs.get('mobilephone', '')
         self.email = kwargs.get('email', '')
         self.promote_headings = kwargs.get('promote_headings', False)
         
-        # 如果没有指定模板路径，使用默认模板
-        if not self.template_path:
-            # 尝试在多个位置查找默认模板
-            possible_template_paths = [
-                Path(__file__).parent / "templates" / "template.docx",
-                Path(__file__).parent.parent.parent / "tools" / "templates" / "template.docx",
-                Path(__file__).parent.parent.parent / "backend" / "converters" / "templates" / "template.docx"
-            ]
-            
-            for template_path in possible_template_paths:
-                if template_path.exists():
-                    self.template_path = str(template_path)
-                    self.logger.info(f"使用默认模板: {self.template_path}")
-                    break
-            
-            if not self.template_path:
-                self.logger.warning("未找到默认模板文件，将使用无模板转换")
+        # 模板路径现在由前端直接提供，后端不再进行复杂的查找
+        self.template_path = None
+        if self.output_format in ['docx', 'pdf']:
+            self.template_path = self.docx_template_path
+        elif self.output_format == 'pptx':
+            self.template_path = self.pptx_template_path
 
     def convert(self, input_path: str) -> List[str]:
         """
@@ -119,9 +109,62 @@ class MdToOfficeConverter(BaseConverter):
             return pdf_path_result
         elif self.output_format == 'html':
             return self._convert_to_html(input_file)
+        elif self.output_format == 'pptx':
+            return self._convert_to_pptx(input_file)
         else:
             self.logger.error(f"Unsupported output format: {self.output_format}")
             return None
+
+    def _convert_to_pptx(self, input_file: str) -> Optional[str]:
+        """Converts a Markdown file to PPTX."""
+        input_path = Path(input_file)
+        output_file_path = self.output_dir / f"{input_path.stem}.pptx"
+
+        processed_content, temp_images = self._preprocess_markdown(input_file)
+        if processed_content is None:
+            return None
+
+        processed_md_file = input_path.with_name(f"{input_path.stem}_processed_{os.getpid()}.md")
+        processed_md_file.write_text(processed_content, encoding='utf-8')
+        
+        all_temp_files = temp_images + [str(processed_md_file)]
+
+        try:
+            if not self._check_tool_availability("pandoc"):
+                self.logger.error("Pandoc not found. Please install pandoc and add it to your PATH.")
+                raise FileNotFoundError("Pandoc not found. Please install pandoc and add it to your system's PATH.")
+
+            cmd = [
+                'pandoc', str(processed_md_file),
+                '-o', str(output_file_path),
+                '--resource-path=' + str(input_path.parent),
+                '--quiet'
+            ]
+            
+            # 只有在提供了模板路径时才使用 --reference-doc
+            if self.template_path and Path(self.template_path).exists():
+                self.logger.info(f"使用PPTX模板: {self.template_path}")
+                cmd.extend(['--reference-doc', self.template_path])
+            else:
+                self.logger.info("未提供PPTX模板，使用Pandoc默认样式")
+
+            if self.promote_headings:
+                cmd.append('--shift-heading-level-by=-1')
+            
+            # Pandoc不支持为pptx注入变量，但我们保留这个结构以备将来扩展
+            # title = self._get_title_from_md(processed_content, input_path)
+
+            subprocess.run(cmd, check=True, capture_output=True, text=True, encoding='utf-8')
+            
+            self.logger.info(f"Successfully converted {input_file} to {output_file_path}")
+            return str(output_file_path)
+
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            error_message = e.stderr if hasattr(e, 'stderr') else str(e)
+            self.logger.error(f"Failed during PPTX conversion: {error_message}")
+            return None
+        finally:
+            self._cleanup_temp_files(all_temp_files, str(processed_md_file), input_file)
 
     def _check_tool_availability(self, tool_name: str) -> bool:
         """Checks if an external tool is available in the system's PATH."""
@@ -193,10 +236,11 @@ class MdToOfficeConverter(BaseConverter):
                 self.logger.warning(f"无法删除临时文件 {processed_file}: {e}")
 
     def _convert_to_docx(self, input_file: str, to_pdf: bool = False) -> Optional[str]:
-        """Converts a Markdown file to DOCX."""
+        """Converts a Markdown file to DOCX using a unified pandoc approach."""
         input_path = Path(input_file)
         
         if to_pdf:
+            # For PDF conversion, we still need a temporary DOCX file.
             output_file_path = self.output_dir / f"{input_path.stem}_temp_for_pdf_{os.getpid()}.docx"
         else:
             output_file_path = self.output_dir / f"{input_path.stem}.docx"
@@ -215,45 +259,31 @@ class MdToOfficeConverter(BaseConverter):
                 self.logger.error("Pandoc not found. Please install pandoc and add it to your PATH.")
                 raise FileNotFoundError("Pandoc not found. Please install pandoc and add it to your system's PATH.")
 
-            resource_path_arg = '--resource-path=' + str(input_path.parent)
-            use_template = self.template_path and Path(self.template_path).exists() and WIN32COM_AVAILABLE
-            
-            if use_template:
-                content_docx = self.output_dir / f"{input_path.stem}_content_{os.getpid()}.docx"
-                all_temp_files.append(str(content_docx))
+            cmd = [
+                'pandoc', str(processed_md_file),
+                '-o', str(output_file_path),
+                '--resource-path=' + str(input_path.parent),
+                '--quiet'
+            ]
 
-                cmd = ['pandoc', str(processed_md_file), '-o', str(content_docx), resource_path_arg, '--quiet']
-                if self.promote_headings:
-                    cmd.append('--shift-heading-level-by=-1')
-                subprocess.run(cmd, check=True, capture_output=True, text=True, encoding='utf-8')
-
-                title = self._get_title_from_md(processed_content, input_path)
-                
-                # 使用改进的模板处理方法
-                final_output = self._copy_template_and_append_content(
-                    self.template_path, str(content_docx), title
-                )
-                
-                # 如果模板处理成功，更新输出路径
-                if final_output != str(content_docx):
-                    # 将模板处理后的文件移动到预期位置
-                    if Path(final_output).exists():
-                        if final_output != str(output_file_path):
-                            shutil.move(final_output, str(output_file_path))
-                    
-                self._update_toc(str(output_file_path))
-
+            # Use --reference-doc for styling, same as PPTX conversion
+            if self.template_path and Path(self.template_path).exists():
+                self.logger.info(f"使用DOCX模板进行样式转换: {self.template_path}")
+                cmd.extend(['--reference-doc', self.template_path])
             else:
-                cmd = ['pandoc', str(processed_md_file), '-o', str(output_file_path), resource_path_arg, '--quiet']
-                if self.promote_headings:
-                    cmd.append('--shift-heading-level-by=-1')
-                subprocess.run(cmd, check=True, capture_output=True, text=True, encoding='utf-8')
+                self.logger.info("未提供DOCX模板，使用Pandoc默认样式")
+
+            if self.promote_headings:
+                cmd.append('--shift-heading-level-by=-1')
+            
+            subprocess.run(cmd, check=True, capture_output=True, text=True, encoding='utf-8')
             
             self.logger.info(f"Successfully converted {input_file} to {output_file_path}")
             return str(output_file_path)
 
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
-            self.logger.error(f"Failed during DOCX conversion: {e.stderr if hasattr(e, 'stderr') else e}")
+            error_message = e.stderr if hasattr(e, 'stderr') else str(e)
+            self.logger.error(f"Failed during DOCX conversion: {error_message}")
             return None
         finally:
             self._cleanup_temp_files(all_temp_files, str(processed_md_file), input_file)
@@ -496,8 +526,8 @@ class MdToOfficeConverter(BaseConverter):
     
     def _copy_template_and_append_content(self, template_path: str, content_path: str, title: str) -> str:
         """
-        使用docxcompose合并模板和内容文档
-        迁移自 tools/md_to_docx.py
+        [DEPRECATED] This method used a complex docxcompose process.
+        It's kept for reference but no longer used in the main conversion flow.
         """
         if not WIN32COM_AVAILABLE:
             self.logger.warning("在非Windows系统上无法使用模板功能，将使用简单转换")

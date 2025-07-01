@@ -55,15 +55,20 @@ export function executePythonScript(
         ];
         
         // 添加转换选项参数（对DOCX, PDF, PPTX转换有效）
-        if (conversionOptions && ['md-to-docx', 'md-to-pdf', 'md-to-pptx'].includes(conversionType)) {
-            if (conversionOptions.useTemplate === false) {
-                // 如果不使用模板，明确传递空模板路径
-                args.push('--template-path', '');
-            } else if (conversionOptions.templatePath) {
-                // 如果指定了自定义模板路径
-                args.push('--template-path', conversionOptions.templatePath);
+        if (conversionOptions) {
+            let templatePathArg = '';
+            
+            if (conversionType === 'md-to-docx' || conversionType === 'md-to-pdf') {
+                templatePathArg = '--docx-template-path';
+            } else if (conversionType === 'md-to-pptx') {
+                templatePathArg = '--pptx-template-path';
             }
-            // 如果 useTemplate 为 true 但 templatePath 为空，则不传递 --template-path，由后端决定使用默认模板
+
+            // 如果 conversionOptions 中存在 templatePath，则传递它
+            // 这是由 commandHandler 决定的，要么是自定义路径，要么是默认路径
+            if (templatePathArg && conversionOptions.templatePath) {
+                args.push(templatePathArg, conversionOptions.templatePath);
+            }
 
             // 添加项目信息参数
             if (conversionOptions.projectName) {
@@ -82,6 +87,11 @@ export function executePythonScript(
             // 添加标题提升参数
             if (conversionOptions.promoteHeadings) {
                 args.push('--promote-headings');
+            }
+
+            // 添加 Poppler 路径参数
+            if (conversionOptions.popplerPath) {
+                args.push('--poppler-path', conversionOptions.popplerPath);
             }
         }
         
