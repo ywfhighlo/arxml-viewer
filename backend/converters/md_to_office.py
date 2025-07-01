@@ -44,6 +44,7 @@ class MdToOfficeConverter(BaseConverter):
         self.author = kwargs.get('author', '')
         self.mobilephone = kwargs.get('mobilephone', '')
         self.email = kwargs.get('email', '')
+        self.promote_headings = kwargs.get('promote_headings', False)
         
         # 如果没有指定模板路径，使用默认模板
         if not self.template_path:
@@ -222,6 +223,8 @@ class MdToOfficeConverter(BaseConverter):
                 all_temp_files.append(str(content_docx))
 
                 cmd = ['pandoc', str(processed_md_file), '-o', str(content_docx), resource_path_arg, '--quiet']
+                if self.promote_headings:
+                    cmd.append('--shift-heading-level-by=-1')
                 subprocess.run(cmd, check=True, capture_output=True, text=True, encoding='utf-8')
 
                 title = self._get_title_from_md(processed_content, input_path)
@@ -242,6 +245,8 @@ class MdToOfficeConverter(BaseConverter):
 
             else:
                 cmd = ['pandoc', str(processed_md_file), '-o', str(output_file_path), resource_path_arg, '--quiet']
+                if self.promote_headings:
+                    cmd.append('--shift-heading-level-by=-1')
                 subprocess.run(cmd, check=True, capture_output=True, text=True, encoding='utf-8')
             
             self.logger.info(f"Successfully converted {input_file} to {output_file_path}")

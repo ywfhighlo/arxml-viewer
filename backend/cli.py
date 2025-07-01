@@ -58,6 +58,8 @@ def main():
     parser.add_argument('--author', help='作者名称 (可选)')
     parser.add_argument('--mobilephone', help='联系电话 (可选)')
     parser.add_argument('--email', help='电子邮箱 (可选)')
+    parser.add_argument('--promote-headings', action='store_true',
+                       help='将Markdown标题提升一级（例如## -> 1级标题）')
     parser.add_argument('--verbose', '-v', action='store_true',
                        help='启用详细日志输出')
     
@@ -80,7 +82,8 @@ def main():
             "project_name": args.project_name,
             "author": args.author,
             "mobilephone": args.mobilephone,
-            "email": args.email
+            "email": args.email,
+            "promote_headings": args.promote_headings
         }
         # 过滤掉值为 None 的参数
         converter_kwargs = {k: v for k, v in converter_kwargs.items() if v is not None}

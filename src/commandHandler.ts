@@ -42,27 +42,29 @@ export async function handleConvertCommand(
 
             progress.report({ message: '调用转换引擎...' });
             
-            // 获取模板配置（仅对DOCX转换有效）
-            let templateOptions = null;
-            if (conversionType === 'md-to-docx') {
+            // 获取模板配置（仅对DOCX和PDF转换有效）
+            let conversionOptions = null;
+            if (conversionType === 'md-to-docx' || conversionType === 'md-to-pdf') {
                 const useTemplate = config.get<boolean>('useTemplate', true);
                 const templatePath = config.get<string>('templatePath', '');
                 const projectName = config.get<string>('projectName', '');
                 const author = config.get<string>('author', '');
                 const email = config.get<string>('email', '');
                 const mobilephone = config.get<string>('mobilephone', '');
+                const promoteHeadings = config.get<boolean>('promoteHeadings', true);
                 
-                templateOptions = {
+                conversionOptions = {
                     useTemplate,
                     templatePath,
                     projectName,
                     author,
                     email,
-                    mobilephone
+                    mobilephone,
+                    promoteHeadings
                 };
             }
             
-            const result = await executePythonScript(sourcePath, conversionType, outputDir, context, templateOptions);
+            const result = await executePythonScript(sourcePath, conversionType, outputDir, context, conversionOptions);
 
             if (result.success) {
                 const message = result.outputFiles && result.outputFiles.length > 0

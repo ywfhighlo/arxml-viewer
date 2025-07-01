@@ -155,7 +155,7 @@
           "type": "string",
           "default": "",
           "markdownDescription": "**Author name**\n\nThis will be used in the template when converting to DOCX.",
-          "scope": "window", 
+          "scope": "window",
           "order": 21
         },
         "markdown-docs-converter.email": {
@@ -171,6 +171,13 @@
           "markdownDescription": "**Mobile phone**\n\nThis will be used in the template when converting to DOCX.",
           "scope": "window",
           "order": 23
+        },
+        "markdown-docs-converter.promoteHeadings": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "**Promote Heading Levels**\n\nWhen enabled, shifts heading levels up by one (e.g., `## Chapter 1` becomes Heading 1 in the output). This treats `# Document Title` as a cover page title. Disable this if your document starts with `# Chapter 1` as the first chapter.",
+          "scope": "window",
+          "order": 30
         }
       }
     }

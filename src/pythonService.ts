@@ -18,7 +18,7 @@ export function executePythonScript(
     conversionType: ConversionType,
     outputDir: string,
     context: vscode.ExtensionContext,
-    templateOptions?: any
+    conversionOptions?: any
 ): Promise<PythonResponse> {
     
     return new Promise((resolve, reject) => {
@@ -38,29 +38,34 @@ export function executePythonScript(
             '--output-dir', outputDir
         ];
         
-        // 添加模板相关参数（仅对DOCX转换有效）
-        if (templateOptions && conversionType === 'md-to-docx') {
-            if (!templateOptions.useTemplate) {
-                // 如果不使用模板，传递空的模板路径
+        // 添加转换选项参数（对DOCX和PDF转换有效）
+        if (conversionOptions && (conversionType === 'md-to-docx' || conversionType === 'md-to-pdf')) {
+            if (conversionOptions.useTemplate === false) {
+                // 如果不使用模板，明确传递空模板路径
                 args.push('--template-path', '');
-            } else if (templateOptions.templatePath) {
-                // 如果指定了模板路径
-                args.push('--template-path', templateOptions.templatePath);
+            } else if (conversionOptions.templatePath) {
+                // 如果指定了自定义模板路径
+                args.push('--template-path', conversionOptions.templatePath);
             }
-            // 如果没有指定模板路径但启用了模板，则使用默认模板（不传递参数）
-            
+            // 如果 useTemplate 为 true 但 templatePath 为空，则不传递 --template-path，由后端决定使用默认模板
+
             // 添加项目信息参数
-            if (templateOptions.projectName) {
-                args.push('--project-name', templateOptions.projectName);
+            if (conversionOptions.projectName) {
+                args.push('--project-name', conversionOptions.projectName);
             }
-            if (templateOptions.author) {
-                args.push('--author', templateOptions.author);
+            if (conversionOptions.author) {
+                args.push('--author', conversionOptions.author);
             }
-            if (templateOptions.email) {
-                args.push('--email', templateOptions.email);
+            if (conversionOptions.email) {
+                args.push('--email', conversionOptions.email);
             }
-            if (templateOptions.mobilephone) {
-                args.push('--mobilephone', templateOptions.mobilephone);
+            if (conversionOptions.mobilephone) {
+                args.push('--mobilephone', conversionOptions.mobilephone);
+            }
+            
+            // 添加标题提升参数
+            if (conversionOptions.promoteHeadings) {
+                args.push('--promote-headings');
             }
         }
         
