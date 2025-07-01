@@ -1,13 +1,13 @@
 {
-  "name": "markdown-docs-converter",
-  "displayName": "Markdown Docs Converter",
-  "description": "Convert between Markdown, Office documents, PDFs, and diagrams right from the context menu.",
-  "version": "0.1.0",
-  "author": "余文锋",
+  "name": "markdown-hub",
+  "displayName": "Markdown Hub",
+  "description": "Markdown文档转换的瑞士军刀。",
+  "version": "0.2.0",
+  "author": "余文锋 <909188787@qq.com>",
   "publisher": "ywfhighlo",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ywfhighlo/markdown-docs-converter.git"
+    "url": "https://github.com/ywfhighlo/markdown-hub.git"
   },
   "engines": {
     "vscode": "^1.80.0"
@@ -16,38 +16,38 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:markdown-docs-converter.mdToDocx",
-    "onCommand:markdown-docs-converter.mdToPdf",
-    "onCommand:markdown-docs-converter.mdToHtml",
-    "onCommand:markdown-docs-converter.officeToMd",
-    "onCommand:markdown-docs-converter.diagramToPng",
-    "onCommand:markdown-docs-converter.openTemplateSettings"
+    "onCommand:markdown-hub.mdToDocx",
+    "onCommand:markdown-hub.mdToPdf",
+    "onCommand:markdown-hub.mdToHtml",
+    "onCommand:markdown-hub.officeToMd",
+    "onCommand:markdown-hub.diagramToPng",
+    "onCommand:markdown-hub.openTemplateSettings"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "markdown-docs-converter.mdToDocx",
+        "command": "markdown-hub.mdToDocx",
         "title": "Convert to DOCX"
       },
       {
-        "command": "markdown-docs-converter.mdToPdf",
+        "command": "markdown-hub.mdToPdf",
         "title": "Convert to PDF"
       },
       {
-        "command": "markdown-docs-converter.mdToHtml",
+        "command": "markdown-hub.mdToHtml",
         "title": "Convert to HTML"
       },
       {
-        "command": "markdown-docs-converter.officeToMd",
+        "command": "markdown-hub.officeToMd",
         "title": "Convert to Markdown"
       },
       {
-        "command": "markdown-docs-converter.diagramToPng",
+        "command": "markdown-hub.diagramToPng",
         "title": "Convert to PNG"
       },
       {
-        "command": "markdown-docs-converter.openTemplateSettings",
+        "command": "markdown-hub.openTemplateSettings",
         "title": "Template Settings..."
       }
     ],
@@ -55,124 +55,124 @@
       "explorer/context": [
         {
           "when": "resourceLangId == markdown",
-          "command": "markdown-docs-converter.mdToDocx",
+          "command": "markdown-hub.mdToDocx",
           "group": "2_conversion@1"
         },
         {
           "when": "resourceLangId == markdown",
-          "command": "markdown-docs-converter.mdToPdf",
+          "command": "markdown-hub.mdToPdf",
           "group": "2_conversion@2"
         },
         {
           "when": "resourceLangId == markdown",
-          "command": "markdown-docs-converter.mdToHtml",
+          "command": "markdown-hub.mdToHtml",
           "group": "2_conversion@3"
         },
         {
           "when": "resourceLangId == markdown",
-          "command": "markdown-docs-converter.openTemplateSettings",
+          "command": "markdown-hub.openTemplateSettings",
           "group": "2_conversion@4"
         },
         {
           "when": "resourceExtname == .docx || resourceExtname == .xlsx || resourceExtname == .ppt || resourceExtname == .pdf",
-          "command": "markdown-docs-converter.officeToMd",
+          "command": "markdown-hub.officeToMd",
           "group": "2_conversion@1"
         },
         {
           "when": "resourceExtname == .svg || resourceExtname == .drawio",
-          "command": "markdown-docs-converter.diagramToPng",
+          "command": "markdown-hub.diagramToPng",
           "group": "2_conversion@1"
         },
         {
           "when": "resourceIsFolder",
-          "command": "markdown-docs-converter.mdToDocx",
+          "command": "markdown-hub.mdToDocx",
           "group": "2_conversion@1"
         },
         {
           "when": "resourceIsFolder",
-          "command": "markdown-docs-converter.mdToPdf",
+          "command": "markdown-hub.mdToPdf",
           "group": "2_conversion@2"
         },
         {
           "when": "resourceIsFolder",
-          "command": "markdown-docs-converter.mdToHtml",
+          "command": "markdown-hub.mdToHtml",
           "group": "2_conversion@3"
         },
         {
           "when": "resourceIsFolder",
-          "command": "markdown-docs-converter.openTemplateSettings",
+          "command": "markdown-hub.openTemplateSettings",
           "group": "2_conversion@6"
         },
         {
           "when": "resourceIsFolder",
-          "command": "markdown-docs-converter.officeToMd",
+          "command": "markdown-hub.officeToMd",
           "group": "2_conversion@4"
         },
         {
           "when": "resourceIsFolder",
-          "command": "markdown-docs-converter.diagramToPng",
+          "command": "markdown-hub.diagramToPng",
           "group": "2_conversion@5"
         }
       ]
     },
     "configuration": {
-      "title": "Markdown Docs Converter",
+      "title": "Markdown Hub",
       "properties": {
-        "markdown-docs-converter.outputDirectory": {
+        "markdown-hub.outputDirectory": {
           "type": "string",
           "default": "./converted_markdown_files",
           "description": "Directory where converted files will be saved",
           "scope": "window"
         },
-        "markdown-docs-converter.pythonPath": {
+        "markdown-hub.pythonPath": {
           "type": "string",
           "default": "python",
           "markdownDescription": "Path to Python executable. On Windows, this should typically be `python`. On macOS/Linux, it's often `python3`.",
           "scope": "window"
         },
-        "markdown-docs-converter.useTemplate": {
+        "markdown-hub.useTemplate": {
           "type": "boolean",
           "default": true,
           "markdownDescription": "**Enable template usage for DOCX conversion**\n\nWhen enabled, DOCX conversion will use a template file with project information.",
           "scope": "window",
           "order": 10
         },
-        "markdown-docs-converter.templatePath": {
+        "markdown-hub.templatePath": {
           "type": "string",
           "default": "",
           "markdownDescription": "**Path to custom DOCX template file**\n\nLeave empty to use the default template. Click the folder icon to browse for a template file.",
           "scope": "window",
           "order": 11
         },
-        "markdown-docs-converter.projectName": {
+        "markdown-hub.projectName": {
           "type": "string",
           "default": "",
           "markdownDescription": "**Project name**\n\nThis will be used in the template when converting to DOCX.",
           "scope": "window",
           "order": 20
         },
-        "markdown-docs-converter.author": {
+        "markdown-hub.author": {
           "type": "string",
           "default": "",
           "markdownDescription": "**Author name**\n\nThis will be used in the template when converting to DOCX.",
           "scope": "window",
           "order": 21
         },
-        "markdown-docs-converter.email": {
+        "markdown-hub.email": {
           "type": "string",
           "default": "",
           "markdownDescription": "**Email address**\n\nThis will be used in the template when converting to DOCX.",
           "scope": "window",
           "order": 22
         },
-        "markdown-docs-converter.mobilephone": {
+        "markdown-hub.mobilephone": {
           "type": "string",
           "default": "",
           "markdownDescription": "**Mobile phone**\n\nThis will be used in the template when converting to DOCX.",
           "scope": "window",
           "order": 23
         },
-        "markdown-docs-converter.promoteHeadings": {
+        "markdown-hub.promoteHeadings": {
           "type": "boolean",
           "default": true,
           "markdownDescription": "**Promote Heading Levels**\n\nWhen enabled, shifts heading levels up by one (e.g., `## Chapter 1` becomes Heading 1 in the output). This treats `# Document Title` as a cover page title. Disable this if your document starts with `# Chapter 1` as the first chapter.",

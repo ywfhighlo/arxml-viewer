@@ -1,77 +1,42 @@
-# Markdown Docs Converter
+# Markdown Hub - VSCode 扩展
 
-> A powerful VS Code extension to convert files between Markdown, Office formats (DOCX), PDF, and HTML right from the context menu.
+Markdown文档转换的瑞士军刀。
 
-Created with ❤️ by **余文锋**
+## 👨‍💻 作者信息
+
+**作者**: 余文锋  
+**邮箱**: 909188787@qq.com  
 
 ## 🎯 功能特性
 
 ### Markdown 转换
-- **Markdown → DOCX**: 将 `.md` 文件转换为 Word 文档
-- **Markdown → PDF**: 将 `.md` 文件转换为 PDF 文档  
-- **Markdown → HTML**: 将 `.md` 文件转换为 HTML 网页
+- **Markdown → DOCX**: 将 `.md` 文件转换为带有自定义模板的 Word 文档。
+- **Markdown → PDF**: 将 `.md` 文件转换为 PDF 文档。
+- **Markdown → HTML**: 将 `.md` 文件转换为带样式的 HTML 网页。
 
-### Office 文档转换
-- **DOCX → Markdown**: 将 Word 文档转换为 `.md` 文件
-- **XLSX → Markdown**: 将 Excel 表格转换为 `.md` 文件
-- **PDF → Markdown**: 将 PDF 文档转换为 `.md` 文件
-
-### 图表转换
-- **SVG → PNG**: 将矢量图转换为位图
-- **Draw.io → PNG**: 将 Draw.io 图表转换为 PNG 图片
+### Office 与其他格式转换
+- **DOCX → Markdown**: 将 Word 文档转换为 `.md` 文件。
+- **XLSX → Markdown**: 将 Excel 表格转换为 `.md` 文件。
+- **PDF → Markdown**: 将 PDF 文档转换为 `.md` 文件。
+- **SVG/Draw.io → PNG**: 将矢量图或流程图转换为PNG图片。
 
 ## 🚀 使用方法
 
-### 基础转换
-1. 在 VS Code 资源管理器中右键点击文件或文件夹
-2. 在上下文菜单中选择相应的转换选项
-3. 转换完成后会在配置的输出目录中生成文件
-
-### 模板设置 🆕
-1. 右键点击 Markdown 文件或文件夹，选择 **"Template Settings..."**
-2. 系统会打开 VS Code 设置页面的模板配置区域
-3. 在设置页面中可以配置：
-   - **Enable template usage**: 启用/禁用模板功能
-   - **Template path**: 选择自定义 DOCX 模板文件路径
-   - **Project name**: 项目名称
-   - **Author name**: 作者姓名
-   - **Email/Mobile phone**: 联系信息
-4. 配置保存后，所有 **"Convert to DOCX"** 操作都会自动使用这些设置
+1. 在 VS Code 的资源管理器中，右键点击任何支持的文件或包含这些文件的文件夹。
+2. 在弹出的上下文菜单中，选择您需要的转换命令 (例如 "Convert to DOCX")。
+3. 转换后的文件将出现在您配置的输出目录中。
+4. 若要配置模板、作者信息等，请右键选择 **"Template Settings..."**，这会直接带您到 VS Code 的设置页面。
 
 ## ⚙️ 配置选项
 
-您可以在 VS Code 的 `设置(Settings)` 中搜索 `markdown-docs-converter` 来找到所有配置项。
+您可以在 VS Code 的 `设置(Settings)` 中搜索 `markdown-hub` 来找到所有配置项。
 
-- **`markdown-docs-converter.outputDirectory`**: 所有转换后文件的输出目录。
-  - *默认值*: `./converted_markdown_files`
-
-- **`markdown-docs-converter.pythonPath`**: Python 解释器的路径或命令。
-  - *默认值*: 在 Windows 上为 `python`，在 macOS/Linux 上为 `python3`。如果您的 Python 安装在非标准位置，请在此处指定完整路径。
-
-### 模板配置 🆕
-- **`markdown-docs-converter.useTemplate`**: 是否为 `Markdown → DOCX` 的转换启用模板功能。
-- **`markdown-docs-converter.templatePath`**: 自定义 `.docx` 模板文件的完整路径。如果留空，将使用插件内置的默认模板。
-- **`markdown-docs-converter.projectName`**: 模板中使用的项目名称。
-- **`markdown-docs-converter.author`**: 模板中使用的作者姓名。
-- **`markdown-docs-converter.email`**: 模板中使用的邮箱地址。
-- **`markdown-docs-converter.mobilephone`**: 模板中使用的联系电话。
-
-## 🏗️ 开发状态
-
-**核心功能已完成**
-- ✅ **Markdown 转换**: `md` -> `docx`/`pdf`/`html`，完全支持带自定义模板的 DOCX 转换。
-- ✅ **Office 转换**: `docx`/`xlsx`/`pdf` -> `md`。
-- ✅ **图表转换**: `svg`/`drawio` -> `png`。
-- ✅ **配置系统**: 所有功能均可通过 VS Code 标准设置页面进行配置。
-
-项目当前处于稳定维护阶段。
-
-## 📦 技术架构
-
-- **前端**: TypeScript + VS Code Extension API
-- **后端**: Python + 面向对象转换器架构
-- **通信**: JSON 格式的命令行接口
-
-## 🔧 开发说明
-
-本项目将 `/tools` 目录中的成熟转换脚本重构为结构化的 VS Code 扩展。所有转换逻辑都来源于经过验证的工具，确保转换质量和稳定性。 
+- **`markdown-hub.outputDirectory`**: 所有转换后文件的输出目录。
+- **`markdown-hub.pythonPath`**: Python 解释器的路径或命令。
+- **`markdown-hub.useTemplate`**: 是否为 `Markdown → DOCX` 的转换启用模板功能。
+- **`markdown-hub.templatePath`**: 自定义 `.docx` 模板文件的完整路径。
+- **`markdown-hub.projectName`**: 模板中使用的项目名称。
+- **`markdown-hub.author`**: 模板中使用的作者姓名。
+- **`markdown-hub.email`**: 模板中使用的邮箱地址。
+- **`markdown-hub.mobilephone`**: 模板中使用的联系电话。
+- **`markdown-hub.promoteHeadings`**: 自动提升Markdown文档的标题级别，以适配"封面页"式的写作习惯。

@@ -42,7 +42,7 @@ def get_converter(conversion_type: str, output_dir: str, **kwargs) -> BaseConver
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Markdown Docs Converter - 文档转换工具",
+        description="Markdown Hub - 文档转换工具",
         formatter_class=argparse.RawTextHelpFormatter
     )
     parser.add_argument('--conversion-type', required=True, 

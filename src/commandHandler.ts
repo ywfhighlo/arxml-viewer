@@ -19,7 +19,7 @@ export async function handleConvertCommand(
     }
 
     const sourcePath = resourceUri.fsPath;
-    const config = vscode.workspace.getConfiguration('markdown-docs-converter');
+    const config = vscode.workspace.getConfiguration('markdown-hub');
     
     vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
@@ -95,7 +95,7 @@ export async function handleConvertCommand(
  */
 export async function handleOpenTemplateSettingsCommand() {
     // 打开VS Code设置页面，并定位到模板相关设置
-    await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:ywfhighlo.markdown-docs-converter template');
+    await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:ywfhighlo.markdown-hub template');
 }
 
  

@@ -510,7 +510,7 @@ class MdToOfficeConverter(BaseConverter):
         try:
             # 获取模板上下文数据
             context = {
-                'project_name': self.project_name,
+                'project_name': self.project_name or '',
                 'title': title,
                 'document_no': "P" + datetime.now().strftime("%Y%m%d%H%M%S"),
                 'date': datetime.now().strftime("%Y-%m-%d"),

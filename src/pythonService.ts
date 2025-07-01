@@ -26,7 +26,7 @@ export function executePythonScript(
         const scriptPath = path.join(context.extensionPath, 'backend', 'cli.py');
         
         // 获取 Python 路径配置，并根据操作系统智能选择默认值
-        const config = vscode.workspace.getConfiguration('markdown-docs-converter');
+        const config = vscode.workspace.getConfiguration('markdown-hub');
         const isWindows = process.platform === 'win32';
         const defaultPythonCommand = isWindows ? 'python' : 'python3';
         const pythonPath = config.get<string>('pythonPath', defaultPythonCommand);
