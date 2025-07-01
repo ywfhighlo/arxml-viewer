@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { handleConvertCommand } from './commandHandler';
+import { handleConvertCommand, handleOpenTemplateSettingsCommand } from './commandHandler';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Markdown Docs Converter is now active!');
@@ -19,7 +19,10 @@ export function activate(context: vscode.ExtensionContext) {
             (uri: vscode.Uri) => handleConvertCommand(uri, 'office-to-md', context)),
         
         vscode.commands.registerCommand('markdown-docs-converter.diagramToPng', 
-            (uri: vscode.Uri) => handleConvertCommand(uri, 'diagram-to-png', context))
+            (uri: vscode.Uri) => handleConvertCommand(uri, 'diagram-to-png', context)),
+        
+        vscode.commands.registerCommand('markdown-docs-converter.openTemplateSettings', 
+            () => handleOpenTemplateSettingsCommand())
     ];
     
     context.subscriptions.push(...disposables);

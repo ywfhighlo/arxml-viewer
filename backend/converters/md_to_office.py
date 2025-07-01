@@ -44,6 +44,24 @@ class MdToOfficeConverter(BaseConverter):
         self.author = kwargs.get('author', '')
         self.mobilephone = kwargs.get('mobilephone', '')
         self.email = kwargs.get('email', '')
+        
+        # 如果没有指定模板路径，使用默认模板
+        if not self.template_path:
+            # 尝试在多个位置查找默认模板
+            possible_template_paths = [
+                Path(__file__).parent / "templates" / "template.docx",
+                Path(__file__).parent.parent.parent / "tools" / "templates" / "template.docx",
+                Path(__file__).parent.parent.parent / "backend" / "converters" / "templates" / "template.docx"
+            ]
+            
+            for template_path in possible_template_paths:
+                if template_path.exists():
+                    self.template_path = str(template_path)
+                    self.logger.info(f"使用默认模板: {self.template_path}")
+                    break
+            
+            if not self.template_path:
+                self.logger.warning("未找到默认模板文件，将使用无模板转换")
 
     def convert(self, input_path: str) -> List[str]:
         """
@@ -77,22 +95,27 @@ class MdToOfficeConverter(BaseConverter):
         if self.output_format == 'docx':
             return self._convert_to_docx(input_file)
         elif self.output_format == 'pdf':
+            # 1. 定义最终的PDF输出路径
+            final_pdf_path = str(self.output_dir / f"{Path(input_file).stem}.pdf")
+            
+            # 2. 创建临时的DOCX文件
             docx_path = self._convert_to_docx(input_file, to_pdf=True)
             if not docx_path:
                 self.logger.error(f"Failed to create intermediate DOCX for PDF conversion from {input_file}")
                 return None
             
-            pdf_path = self._convert_docx_to_pdf(docx_path)
+            # 3. 将临时DOCX转换为最终的PDF
+            pdf_path_result = self._convert_docx_to_pdf(docx_path, final_pdf_path)
             
-            # Clean up the intermediate docx file
-            if pdf_path and os.path.exists(docx_path):
+            # 4. 清理临时的DOCX文件
+            if pdf_path_result and os.path.exists(docx_path):
                 try:
                     os.remove(docx_path)
                     self.logger.info(f"Removed intermediate file: {docx_path}")
                 except OSError as e:
                     self.logger.warning(f"Failed to remove intermediate file {docx_path}: {e}")
 
-            return pdf_path
+            return pdf_path_result
         elif self.output_format == 'html':
             return self._convert_to_html(input_file)
         else:
@@ -151,7 +174,7 @@ class MdToOfficeConverter(BaseConverter):
 
         return content, temp_files
     
-    def _cleanup_temp_files(self, temp_files: List[str]):
+    def _cleanup_temp_files(self, temp_files: List[str], processed_file: str = None, original_file: str = None):
         """清理临时文件"""
         for temp_file in temp_files:
             try:
@@ -159,6 +182,14 @@ class MdToOfficeConverter(BaseConverter):
                     os.remove(temp_file)
             except Exception as e:
                 self.logger.warning(f"无法删除临时文件 {temp_file}: {e}")
+        
+        # 清理处理过的文件（如果与原文件不同）
+        if processed_file and original_file and processed_file != original_file:
+            try:
+                if os.path.exists(processed_file):
+                    os.remove(processed_file)
+            except Exception as e:
+                self.logger.warning(f"无法删除临时文件 {processed_file}: {e}")
 
     def _convert_to_docx(self, input_file: str, to_pdf: bool = False) -> Optional[str]:
         """Converts a Markdown file to DOCX."""
@@ -180,8 +211,8 @@ class MdToOfficeConverter(BaseConverter):
 
         try:
             if not self._check_tool_availability("pandoc"):
-                self.logger.error("Pandoc not found. Please install it to convert files.")
-                return None
+                self.logger.error("Pandoc not found. Please install pandoc and add it to your PATH.")
+                raise FileNotFoundError("Pandoc not found. Please install pandoc and add it to your system's PATH.")
 
             resource_path_arg = '--resource-path=' + str(input_path.parent)
             use_template = self.template_path and Path(self.template_path).exists() and WIN32COM_AVAILABLE
@@ -194,20 +225,19 @@ class MdToOfficeConverter(BaseConverter):
                 subprocess.run(cmd, check=True, capture_output=True, text=True, encoding='utf-8')
 
                 title = self._get_title_from_md(processed_content, input_path)
-
-                doc_tpl = DocxTemplate(self.template_path)
-                context = {
-                    "py_project_name": self.project_name, "title": title,
-                    "py_document_no": "P" + datetime.now().strftime("%Y%m%d%H%M%S"),
-                    "py_date": datetime.now().strftime("%Y-%m-%d"), "py_author": self.author,
-                    "py_mobilephone": self.mobilephone, "py_email": self.email
-                }
-                doc_tpl.render(context)
                 
-                composer = Composer(doc_tpl)
-                composer.append(Document(content_docx))
-                composer.save(output_file_path)
+                # 使用改进的模板处理方法
+                final_output = self._copy_template_and_append_content(
+                    self.template_path, str(content_docx), title
+                )
                 
+                # 如果模板处理成功，更新输出路径
+                if final_output != str(content_docx):
+                    # 将模板处理后的文件移动到预期位置
+                    if Path(final_output).exists():
+                        if final_output != str(output_file_path):
+                            shutil.move(final_output, str(output_file_path))
+                    
                 self._update_toc(str(output_file_path))
 
             else:
@@ -221,7 +251,7 @@ class MdToOfficeConverter(BaseConverter):
             self.logger.error(f"Failed during DOCX conversion: {e.stderr if hasattr(e, 'stderr') else e}")
             return None
         finally:
-            self._cleanup_temp_files(all_temp_files)
+            self._cleanup_temp_files(all_temp_files, str(processed_md_file), input_file)
 
     def _update_toc(self, docx_path: str):
         """Updates the Table of Contents in a DOCX file using Word COM object."""
@@ -242,36 +272,49 @@ class MdToOfficeConverter(BaseConverter):
             self.logger.error(f"Failed to update TOC for {docx_path}: {e}")
         finally:
             if word:
-                if 'doc' in locals() and doc:
-                    doc.Close(False)
-                word.Quit()
+                try:
+                    if 'doc' in locals() and doc:
+                        doc.Close(False)
+                    word.Quit()
+                except:
+                    pass
     
-    def _convert_docx_to_pdf(self, docx_path: str) -> Optional[str]:
+    def _convert_docx_to_pdf(self, docx_path: str, pdf_path: str) -> Optional[str]:
         """Converts a DOCX file to PDF."""
-        pdf_path = Path(docx_path).with_suffix('.pdf')
+        final_pdf_path = Path(pdf_path)
 
         if WIN32COM_AVAILABLE:
             word = None
             try:
                 word = Dispatch('Word.Application')
                 doc = word.Documents.Open(str(Path(docx_path).resolve()))
-                doc.SaveAs(str(pdf_path.resolve()), FileFormat=17)
-                self.logger.info(f"Successfully created PDF with Word: {pdf_path}")
-                return str(pdf_path)
+                doc.SaveAs(str(final_pdf_path.resolve()), FileFormat=17)
+                self.logger.info(f"Successfully created PDF with Word: {final_pdf_path}")
+                return str(final_pdf_path)
             except Exception as e:
                 self.logger.error(f"Word PDF conversion failed: {e}")
             finally:
                 if word:
-                    if 'doc' in locals() and doc:
-                        doc.Close(False)
-                    word.Quit()
+                    try:
+                        if 'doc' in locals() and doc:
+                            doc.Close(False)
+                        word.Quit()
+                    except:
+                        pass
 
         if self._check_tool_availability("soffice"):
             try:
-                cmd = ["soffice", "--headless", "--convert-to", "pdf", "--outdir", str(pdf_path.parent), docx_path]
+                # soffice 会自动处理输出文件名，我们只需提供目录
+                cmd = ["soffice", "--headless", "--convert-to", "pdf", "--outdir", str(final_pdf_path.parent), docx_path]
                 subprocess.run(cmd, check=True, capture_output=True)
-                self.logger.info(f"Successfully created PDF with LibreOffice: {pdf_path}")
-                return str(pdf_path)
+                
+                # LibreOffice/soffice 会创建与输入文件同名的PDF，但可能与我们期望的命名不同，所以需要重命名
+                expected_soffice_output = Path(docx_path).with_suffix('.pdf')
+                if expected_soffice_output.exists() and str(expected_soffice_output) != str(final_pdf_path):
+                    shutil.move(str(expected_soffice_output), str(final_pdf_path))
+
+                self.logger.info(f"Successfully created PDF with LibreOffice: {final_pdf_path}")
+                return str(final_pdf_path)
             except (subprocess.CalledProcessError, FileNotFoundError) as e:
                 self.logger.warning(f"LibreOffice conversion failed: {e.stderr if hasattr(e, 'stderr') else e}")
 
@@ -341,7 +384,7 @@ class MdToOfficeConverter(BaseConverter):
             self.logger.error(f"Failed during HTML conversion: {e.stderr if hasattr(e, 'stderr') else e}")
             return None
         finally:
-            self._cleanup_temp_files(all_temp_files)
+            self._cleanup_temp_files(all_temp_files, str(processed_md_file), input_file)
 
     def _generate_html_toc(self, content: str) -> str:
         """Generates a nested HTML list for the Table of Contents."""
@@ -455,48 +498,59 @@ class MdToOfficeConverter(BaseConverter):
             self.logger.warning("在非Windows系统上无法使用模板功能，将使用简单转换")
             return content_path
             
-        output_path = str(Path(content_path).parent / f"{Path(content_path).stem.replace('_temp', '')}.template.docx")
+        # 创建输出文件路径
+        content_file = Path(content_path)
+        output_path = str(content_file.parent / f"{content_file.stem.replace('_content_', '').replace(f'_{os.getpid()}', '')}.docx")
         
         try:
-            # 获取模板上下文数据（简化版）
+            # 获取模板上下文数据
             context = {
-                'project_name': 'Markdown Docs Converter',
+                'project_name': self.project_name,
                 'title': title,
                 'document_no': "P" + datetime.now().strftime("%Y%m%d%H%M%S"),
                 'date': datetime.now().strftime("%Y-%m-%d"),
-                'author': '余文锋',
-                'mobilephone': '',
-                'email': ''
+                'author': self.author or '',
+                'mobilephone': self.mobilephone or '',
+                'email': self.email or ''
             }
             
+            self.logger.info(f"使用模板: {template_path}")
+            self.logger.info(f"模板上下文: {context}")
+            
             # 使用DocxTemplate渲染模板
-            doc = DocxTemplate(template_path)
-            doc.render(context)
-            doc.save(output_path)
+            doc_tpl = DocxTemplate(template_path)
+            doc_tpl.render(context)
+            doc_tpl.save(output_path)
 
             # 加载渲染后的模板文档
             master = Document(output_path)
+            
+            # 创建composer对象
             composer = Composer(master)
             
             # 加载内容文档
-            doc2 = Document(content_path)
+            content_doc = Document(content_path)
             
             # 在模板文档末尾添加连续分节符
             section = master.add_section()
             section.start_type = WD_SECTION_START.CONTINUOUS
             
             # 合并文档，保留样式
-            composer.append(doc2)
+            composer.append(content_doc)
             
             # 更新文档属性
             master.core_properties.title = title
             
-            # 保存文档
+            # 保存合并后的文档
             composer.save(output_path)
             
+            self.logger.info(f"模板处理成功: {output_path}")
             return output_path
+            
         except Exception as e:
             self.logger.error(f"模板处理失败: {e}")
+            import traceback
+            self.logger.error(f"详细错误信息: {traceback.format_exc()}")
             return content_path
     
     def _post_process_html(self, html_file: str, processed_md_file: str):
@@ -584,18 +638,4 @@ class MdToOfficeConverter(BaseConverter):
         }
         """
     
-    def _cleanup_temp_files(self, temp_files: List[str], processed_file: str, original_file: str):
-        """清理临时文件"""
-        for temp_file in temp_files:
-            try:
-                if os.path.exists(temp_file):
-                    os.remove(temp_file)
-            except Exception as e:
-                self.logger.warning(f"无法删除临时文件 {temp_file}: {e}")
-        
-        if processed_file != original_file:
-            try:
-                if os.path.exists(processed_file):
-                    os.remove(processed_file)
-            except Exception as e:
-                self.logger.warning(f"无法删除临时文件 {processed_file}: {e}") 
+ 

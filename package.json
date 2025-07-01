@@ -20,7 +20,8 @@
     "onCommand:markdown-docs-converter.mdToPdf",
     "onCommand:markdown-docs-converter.mdToHtml",
     "onCommand:markdown-docs-converter.officeToMd",
-    "onCommand:markdown-docs-converter.diagramToPng"
+    "onCommand:markdown-docs-converter.diagramToPng",
+    "onCommand:markdown-docs-converter.openTemplateSettings"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -44,6 +45,10 @@
       {
         "command": "markdown-docs-converter.diagramToPng",
         "title": "Convert to PNG"
+      },
+      {
+        "command": "markdown-docs-converter.openTemplateSettings",
+        "title": "Template Settings..."
       }
     ],
     "menus": {
@@ -64,7 +69,12 @@
           "group": "2_conversion@3"
         },
         {
-          "when": "resourceExtname == .docx || resourceExtname == .xlsx || resourceExtname == .pdf",
+          "when": "resourceLangId == markdown",
+          "command": "markdown-docs-converter.openTemplateSettings",
+          "group": "2_conversion@4"
+        },
+        {
+          "when": "resourceExtname == .docx || resourceExtname == .xlsx || resourceExtname == .ppt || resourceExtname == .pdf",
           "command": "markdown-docs-converter.officeToMd",
           "group": "2_conversion@1"
         },
@@ -90,6 +100,11 @@
         },
         {
           "when": "resourceIsFolder",
+          "command": "markdown-docs-converter.openTemplateSettings",
+          "group": "2_conversion@6"
+        },
+        {
+          "when": "resourceIsFolder",
           "command": "markdown-docs-converter.officeToMd",
           "group": "2_conversion@4"
         },
@@ -105,13 +120,57 @@
       "properties": {
         "markdown-docs-converter.outputDirectory": {
           "type": "string",
-          "default": "./converted",
-          "description": "Directory where converted files will be saved"
+          "default": "./converted_markdown_files",
+          "description": "Directory where converted files will be saved",
+          "scope": "window"
         },
         "markdown-docs-converter.pythonPath": {
           "type": "string",
-          "default": "python3",
-          "description": "Path to Python executable"
+          "default": "python",
+          "markdownDescription": "Path to Python executable. On Windows, this should typically be `python`. On macOS/Linux, it's often `python3`.",
+          "scope": "window"
+        },
+        "markdown-docs-converter.useTemplate": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "**Enable template usage for DOCX conversion**\n\nWhen enabled, DOCX conversion will use a template file with project information.",
+          "scope": "window",
+          "order": 10
+        },
+        "markdown-docs-converter.templatePath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "**Path to custom DOCX template file**\n\nLeave empty to use the default template. Click the folder icon to browse for a template file.",
+          "scope": "window",
+          "order": 11
+        },
+        "markdown-docs-converter.projectName": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "**Project name**\n\nThis will be used in the template when converting to DOCX.",
+          "scope": "window",
+          "order": 20
+        },
+        "markdown-docs-converter.author": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "**Author name**\n\nThis will be used in the template when converting to DOCX.",
+          "scope": "window", 
+          "order": 21
+        },
+        "markdown-docs-converter.email": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "**Email address**\n\nThis will be used in the template when converting to DOCX.",
+          "scope": "window",
+          "order": 22
+        },
+        "markdown-docs-converter.mobilephone": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "**Mobile phone**\n\nThis will be used in the template when converting to DOCX.",
+          "scope": "window",
+          "order": 23
         }
       }
     }

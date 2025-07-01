@@ -19,7 +19,7 @@ export async function handleConvertCommand(
     }
 
     const sourcePath = resourceUri.fsPath;
-    const config = vscode.workspace.getConfiguration('office-docs-converter');
+    const config = vscode.workspace.getConfiguration('markdown-docs-converter');
     
     vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
@@ -41,7 +41,28 @@ export async function handleConvertCommand(
             }
 
             progress.report({ message: '调用转换引擎...' });
-            const result = await executePythonScript(sourcePath, conversionType, outputDir, context);
+            
+            // 获取模板配置（仅对DOCX转换有效）
+            let templateOptions = null;
+            if (conversionType === 'md-to-docx') {
+                const useTemplate = config.get<boolean>('useTemplate', true);
+                const templatePath = config.get<string>('templatePath', '');
+                const projectName = config.get<string>('projectName', '');
+                const author = config.get<string>('author', '');
+                const email = config.get<string>('email', '');
+                const mobilephone = config.get<string>('mobilephone', '');
+                
+                templateOptions = {
+                    useTemplate,
+                    templatePath,
+                    projectName,
+                    author,
+                    email,
+                    mobilephone
+                };
+            }
+            
+            const result = await executePythonScript(sourcePath, conversionType, outputDir, context, templateOptions);
 
             if (result.success) {
                 const message = result.outputFiles && result.outputFiles.length > 0
@@ -61,7 +82,18 @@ export async function handleConvertCommand(
                 vscode.window.showErrorMessage(`转换失败：${result.error}`);
             }
         } catch (error: any) {
-            vscode.window.showErrorMessage(`发生意外错误：${error.message}`);
+            const errorMessage = error.error || error.message || '未知错误，请查看输出面板获取更多信息';
+            vscode.window.showErrorMessage(`发生意外错误：${errorMessage}`);
         }
     });
-} 
+}
+
+/**
+ * 打开模板设置页面
+ */
+export async function handleOpenTemplateSettingsCommand() {
+    // 打开VS Code设置页面，并定位到模板相关设置
+    await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:ywfhighlo.markdown-docs-converter template');
+}
+
+ 

@@ -101,7 +101,7 @@ def main():
         sys.exit(0)
         
     except Exception as e:
-        # 输出错误结果（JSON 格式）
+        # 输出包含诊断信息的错误结果
         result = {
             "success": False,
             "error": str(e)

@@ -17,16 +17,19 @@ export function executePythonScript(
     sourcePath: string,
     conversionType: ConversionType,
     outputDir: string,
-    context: vscode.ExtensionContext
+    context: vscode.ExtensionContext,
+    templateOptions?: any
 ): Promise<PythonResponse> {
     
     return new Promise((resolve, reject) => {
         // Python 脚本路径
         const scriptPath = path.join(context.extensionPath, 'backend', 'cli.py');
         
-        // 获取 Python 路径配置
-        const config = vscode.workspace.getConfiguration('office-docs-converter');
-        const pythonPath = config.get<string>('pythonPath', 'python3');
+        // 获取 Python 路径配置，并根据操作系统智能选择默认值
+        const config = vscode.workspace.getConfiguration('markdown-docs-converter');
+        const isWindows = process.platform === 'win32';
+        const defaultPythonCommand = isWindows ? 'python' : 'python3';
+        const pythonPath = config.get<string>('pythonPath', defaultPythonCommand);
 
         const args = [
             scriptPath,
@@ -34,6 +37,32 @@ export function executePythonScript(
             '--input-path', sourcePath,
             '--output-dir', outputDir
         ];
+        
+        // 添加模板相关参数（仅对DOCX转换有效）
+        if (templateOptions && conversionType === 'md-to-docx') {
+            if (!templateOptions.useTemplate) {
+                // 如果不使用模板，传递空的模板路径
+                args.push('--template-path', '');
+            } else if (templateOptions.templatePath) {
+                // 如果指定了模板路径
+                args.push('--template-path', templateOptions.templatePath);
+            }
+            // 如果没有指定模板路径但启用了模板，则使用默认模板（不传递参数）
+            
+            // 添加项目信息参数
+            if (templateOptions.projectName) {
+                args.push('--project-name', templateOptions.projectName);
+            }
+            if (templateOptions.author) {
+                args.push('--author', templateOptions.author);
+            }
+            if (templateOptions.email) {
+                args.push('--email', templateOptions.email);
+            }
+            if (templateOptions.mobilephone) {
+                args.push('--mobilephone', templateOptions.mobilephone);
+            }
+        }
         
         console.log(`执行命令: ${pythonPath} ${args.join(' ')}`);
 
@@ -53,20 +82,34 @@ export function executePythonScript(
         pyProcess.on('close', (code) => {
             if (code === 0) {
                 try {
-                    // 解析 Python 脚本返回的 JSON 结果
+                    // 解析 Python 脚本返回的 JSON 成功结果
                     const response: PythonResponse = JSON.parse(stdout.trim());
                     resolve(response);
                 } catch (e: any) {
                     reject({ 
                         success: false, 
-                        error: `无法解析 Python 脚本输出：${e.message}\n输出内容：${stdout}` 
+                        error: `无法解析 Python 脚本成功输出：${e.message}\n输出内容：${stdout}` 
                     });
                 }
             } else {
-                reject({ 
-                    success: false, 
-                    error: stderr || `Python 脚本退出，代码：${code}` 
-                });
+                // 当脚本以非零代码退出时，记录所有输出以供诊断
+                console.error(`Python script exited with code: ${code}`);
+                console.error("--- STDOUT ---");
+                console.error(stdout);
+                console.error("--- STDERR ---");
+                console.error(stderr);
+                
+                // 优先尝试解析 stdout，因为它可能包含详细的 JSON 错误报告
+                try {
+                    const errorResponse: PythonResponse = JSON.parse(stdout.trim());
+                    reject(errorResponse); // 即使成功解析，也将其视为一个错误并拒绝
+                } catch (e) {
+                    // 如果解析 stdout 失败，则回退到使用 stderr 或退出代码
+                    reject({ 
+                        success: false, 
+                        error: stderr || `Python 脚本退出，代码：${code}` 
+                    });
+                }
             }
         });
 
@@ -77,4 +120,6 @@ export function executePythonScript(
             });
         });
     });
-} 
+}
+
+ 
