@@ -54,6 +54,7 @@ class OfficeToMdConverter(BaseConverter):
     def __init__(self, output_dir: str, **kwargs):
         super().__init__(output_dir, **kwargs)
         self.poppler_path = kwargs.get('poppler_path')
+        self.tesseract_cmd = kwargs.get('tesseract_cmd')
         self._check_dependencies()
         
     def _check_dependencies(self):
@@ -243,21 +244,24 @@ class OfficeToMdConverter(BaseConverter):
     def _ocr_pdf(self, pdf_path: Path) -> str:
         """使用OCR处理扫描版PDF"""
         try:
+            # 如果用户提供了Tesseract的路径，则配置pytesseract
+            if self.tesseract_cmd:
+                pytesseract.pytesseract.tesseract_cmd = self.tesseract_cmd
+
             text = ""
             # 将PDF转换为图片，并传入poppler_path
             images = convert_from_path(pdf_path, poppler_path=self.poppler_path)
             
             for i, image in enumerate(images):
                 self.logger.info(f"正在OCR第 {i+1}/{len(images)} 页...")
-                # 使用tesseract进行OCR
-                page_text = pytesseract.image_to_string(image, lang='eng+chi')
-                text += page_text + "\n\n"
+                text += pytesseract.image_to_string(image, lang='chi_sim+eng') + "\n\n"
                 
             return text
             
         except Exception as e:
-            self.logger.error(f"OCR处理 {pdf_path} 时出错: {str(e)}")
-            return ""
+            self.logger.error(f"OCR处理失败: {str(e)}")
+            # 返回一个有意义的错误信息，而不是让程序崩溃
+            return f"## OCR处理失败\n\n错误信息: {str(e)}\n\n请确认:\n1. Tesseract-OCR已正确安装并配置了路径。\n2. Poppler已正确安装并配置了路径。\n3. 已安装tesseract对应的语言数据包 (如 chi_sim)。"
     
     def _extract_text_from_word(self, docx_path: Path) -> str:
         """

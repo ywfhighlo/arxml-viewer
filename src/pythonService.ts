@@ -93,6 +93,11 @@ export function executePythonScript(
             if (conversionOptions.popplerPath) {
                 args.push('--poppler-path', conversionOptions.popplerPath);
             }
+
+            // 添加 Tesseract 命令/路径参数
+            if (conversionOptions.tesseractCmd) {
+                args.push('--tesseract-cmd', conversionOptions.tesseractCmd);
+            }
         }
         
         console.log(`执行命令: ${pythonPath} ${args.join(' ')}`);

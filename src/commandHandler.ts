@@ -69,7 +69,8 @@ export async function handleConvertCommand(
                 }
             } else if (conversionType === 'office-to-md') {
                 conversionOptions = {
-                    popplerPath: config.get<string>('popplerPath', '')
+                    popplerPath: config.get<string>('popplerPath', ''),
+                    tesseractCmd: config.get<string>('tesseractCmd', '')
                 };
             }
             

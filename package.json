@@ -213,6 +213,13 @@
           "markdownDescription": "**Path to Poppler installation directory**\n\nRequired for PDF to Markdown conversion on Windows. Provide the path to the Poppler `bin` directory (e.g., `C:\\path\\to\\poppler-23.08.0\\bin`).",
           "scope": "window",
           "order": 40
+        },
+        "markdown-hub.tesseractCmd": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "**Path or command for Tesseract-OCR**\n\nRequired for OCR when converting scanned PDFs. Can be a full path to `tesseract.exe` or just `tesseract` if it's in your system's PATH.",
+          "scope": "window",
+          "order": 50
         }
       }
     }

@@ -66,6 +66,8 @@ def main():
                        help='启用详细日志输出')
     parser.add_argument('--poppler-path',
                        help='Poppler工具的路径 (用于PDF OCR)')
+    parser.add_argument('--tesseract-cmd',
+                       help='Tesseract-OCR的命令或路径 (用于PDF OCR)')
     
     args = parser.parse_args()
     
@@ -104,7 +106,8 @@ def main():
             'email': args.email,
             'mobilephone': args.mobilephone,
             'promote_headings': args.promote_headings,
-            'poppler_path': args.poppler_path
+            'poppler_path': args.poppler_path,
+            'tesseract_cmd': args.tesseract_cmd
         }
         
         # 从 conversion_type 中提取并传递 output_format
