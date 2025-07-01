@@ -39,6 +39,10 @@
         "title": "Convert to HTML"
       },
       {
+        "command": "markdown-hub.mdToPptx",
+        "title": "Convert to PPTX"
+      },
+      {
         "command": "markdown-hub.officeToMd",
         "title": "Convert to Markdown"
       },
@@ -70,8 +74,13 @@
         },
         {
           "when": "resourceLangId == markdown",
-          "command": "markdown-hub.openTemplateSettings",
+          "command": "markdown-hub.mdToPptx",
           "group": "2_conversion@4"
+        },
+        {
+          "when": "resourceLangId == markdown",
+          "command": "markdown-hub.openTemplateSettings",
+          "group": "2_conversion@5"
         },
         {
           "when": "resourceExtname == .docx || resourceExtname == .xlsx || resourceExtname == .ppt || resourceExtname == .pdf",
@@ -100,8 +109,13 @@
         },
         {
           "when": "resourceIsFolder",
+          "command": "markdown-hub.mdToPptx",
+          "group": "2_conversion@4"
+        },
+        {
+          "when": "resourceIsFolder",
           "command": "markdown-hub.openTemplateSettings",
-          "group": "2_conversion@6"
+          "group": "2_conversion@7"
         },
         {
           "when": "resourceIsFolder",

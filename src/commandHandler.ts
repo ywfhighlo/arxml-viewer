@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { executePythonScript } from './pythonService';
 
-type ConversionType = 'md-to-docx' | 'md-to-pdf' | 'md-to-html' | 'office-to-md' | 'diagram-to-png';
+type ConversionType = 'md-to-docx' | 'md-to-pdf' | 'md-to-html' | 'md-to-pptx' | 'office-to-md' | 'diagram-to-png';
 
 /**
  * 处理所有转换命令的核心逻辑
@@ -27,8 +27,6 @@ export async function handleConvertCommand(
         cancellable: false
     }, async (progress) => {
         try {
-            progress.report({ message: '开始转换...' });
-
             // 获取输出目录配置
             const configOutputDir = config.get<string>('outputDirectory', './converted');
             const outputDir = path.isAbsolute(configOutputDir) 
@@ -39,12 +37,10 @@ export async function handleConvertCommand(
             if (!fs.existsSync(outputDir)) {
                 fs.mkdirSync(outputDir, { recursive: true });
             }
-
-            progress.report({ message: '调用转换引擎...' });
             
-            // 获取模板配置（仅对DOCX和PDF转换有效）
+            // 获取模板配置（对DOCX, PDF, PPTX转换有效）
             let conversionOptions = null;
-            if (conversionType === 'md-to-docx' || conversionType === 'md-to-pdf') {
+            if (['md-to-docx', 'md-to-pdf', 'md-to-pptx'].includes(conversionType)) {
                 const useTemplate = config.get<boolean>('useTemplate', true);
                 const templatePath = config.get<string>('templatePath', '');
                 const projectName = config.get<string>('projectName', '');
@@ -64,28 +60,43 @@ export async function handleConvertCommand(
                 };
             }
             
-            const result = await executePythonScript(sourcePath, conversionType, outputDir, context, conversionOptions);
+            const result = await executePythonScript(
+                sourcePath, 
+                conversionType, 
+                outputDir, 
+                context, 
+                conversionOptions,
+                (message: string, percentage?: number) => {
+                    progress.report({ 
+                        message,
+                        increment: percentage !== undefined 
+                            ? percentage - (progress as any).value || 0 
+                            : undefined
+                    });
+                }
+            );
 
             if (result.success) {
-                const message = result.outputFiles && result.outputFiles.length > 0
-                    ? `转换成功！生成了 ${result.outputFiles.length} 个文件。`
-                    : '转换成功！';
-                
-                const actions = ['打开文件夹', '查看详情'];
-                const selection = await vscode.window.showInformationMessage(message, ...actions);
-                
-                if (selection === '打开文件夹') {
-                    vscode.env.openExternal(vscode.Uri.file(outputDir));
-                } else if (selection === '查看详情' && result.outputFiles) {
-                    const fileList = result.outputFiles.map(f => `• ${path.basename(f)}`).join('\n');
-                    vscode.window.showInformationMessage(`生成的文件：\n${fileList}`);
+                const outputFiles = result.outputFiles || [];
+                if (outputFiles.length > 0) {
+                    const message = outputFiles.length === 1
+                        ? `转换完成：${path.basename(outputFiles[0])}`
+                        : `成功转换 ${outputFiles.length} 个文件`;
+                    
+                    vscode.window.showInformationMessage(message, '打开文件夹').then(selection => {
+                        if (selection === '打开文件夹') {
+                            vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(outputDir));
+                        }
+                    });
                 }
             } else {
-                vscode.window.showErrorMessage(`转换失败：${result.error}`);
+                // 如果 result.error 本身就是错误详情，直接抛出
+                throw new Error(result.error || '转换失败，发生未知错误');
             }
         } catch (error: any) {
-            const errorMessage = error.error || error.message || '未知错误，请查看输出面板获取更多信息';
-            vscode.window.showErrorMessage(`发生意外错误：${errorMessage}`);
+            // 确保我们显示的是一个字符串
+            const errorMessage = (error.message || error).toString();
+            vscode.window.showErrorMessage(`转换失败：${errorMessage}`);
         }
     });
 }

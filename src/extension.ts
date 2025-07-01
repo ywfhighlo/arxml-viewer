@@ -15,6 +15,9 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('markdown-hub.mdToHtml', 
             (uri: vscode.Uri) => handleConvertCommand(uri, 'md-to-html', context)),
         
+        vscode.commands.registerCommand('markdown-hub.mdToPptx', 
+            (uri: vscode.Uri) => handleConvertCommand(uri, 'md-to-pptx', context)),
+        
         vscode.commands.registerCommand('markdown-hub.officeToMd', 
             (uri: vscode.Uri) => handleConvertCommand(uri, 'office-to-md', context)),
         

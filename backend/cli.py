@@ -70,46 +70,64 @@ def main():
         logging.getLogger().setLevel(logging.DEBUG)
     else:
         setup_logging()
-    
-    try:
-        # 验证输入路径
-        if not os.path.exists(args.input_path):
-            raise FileNotFoundError(f"输入路径不存在: {args.input_path}")
-        
-        # 动态构建传递给转换器的kwargs
-        converter_kwargs = {
-            "template_path": args.template_path,
-            "project_name": args.project_name,
-            "author": args.author,
-            "mobilephone": args.mobilephone,
-            "email": args.email,
-            "promote_headings": args.promote_headings
-        }
-        # 过滤掉值为 None 的参数
-        converter_kwargs = {k: v for k, v in converter_kwargs.items() if v is not None}
 
-        # 使用 conversion-type 获取转换器实例
-        converter = get_converter(args.conversion_type, args.output_dir, **converter_kwargs)
-        
-        # 执行转换
-        output_files = converter.convert(args.input_path)
-        
-        # 输出成功结果（JSON 格式）
-        result = {
-            "success": True,
-            "outputFiles": output_files,
-            "message": f"成功转换 {len(output_files)} 个文件"
+    # 创建进度报告函数
+    def report_progress(stage: str, percentage: int = None):
+        progress = {
+            "type": "progress",
+            "stage": stage
         }
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-        sys.exit(0)
-        
-    except Exception as e:
-        # 输出包含诊断信息的错误结果
+        if percentage is not None:
+            progress["percentage"] = percentage
+        print(json.dumps(progress, ensure_ascii=False), flush=True)
+
+    try:
+        # 报告开始转换
+        report_progress("开始转换...")
+
+        # 获取转换器类
+        converter_class = CONVERTER_REGISTRY.get(args.conversion_type)
+        if not converter_class:
+            raise ValueError(f"不支持的转换类型: {args.conversion_type}")
+
+        # 创建转换器实例
+        converter = converter_class(
+            output_dir=args.output_dir,
+            template_path=args.template_path,
+            project_name=args.project_name,
+            author=args.author,
+            email=args.email,
+            mobilephone=args.mobilephone,
+            promote_headings=args.promote_headings
+        )
+
+        # 报告准备阶段完成
+        report_progress("正在分析文件...", 25)
+
+        # 执行转换
+        report_progress("正在转换...", 50)
+        output_files = converter.convert(args.input_path)
+        success = len(output_files) > 0
+
+        # 报告完成
+        report_progress("转换完成", 100)
+
+        # 返回最终结果
         result = {
+            "type": "result",
+            "success": success,
+            "outputFiles": output_files
+        }
+        print(json.dumps(result, ensure_ascii=False), flush=True)
+
+    except Exception as e:
+        # 报告错误
+        error_result = {
+            "type": "result",
             "success": False,
             "error": str(e)
         }
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        print(json.dumps(error_result, ensure_ascii=False), flush=True)
         sys.exit(1)
 
 if __name__ == '__main__':

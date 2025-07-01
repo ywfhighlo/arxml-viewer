@@ -2,13 +2,28 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { spawn } from 'child_process';
 
-type ConversionType = 'md-to-docx' | 'md-to-pdf' | 'md-to-html' | 'office-to-md' | 'diagram-to-png';
+type ConversionType = 'md-to-docx' | 'md-to-pdf' | 'md-to-html' | 'md-to-pptx' | 'office-to-md' | 'diagram-to-png';
 
 interface PythonResponse {
     success: boolean;
     outputFiles?: string[];
     error?: string;
 }
+
+interface ProgressInfo {
+    type: 'progress';
+    stage: string;
+    percentage?: number;
+}
+
+interface ResultInfo {
+    type: 'result';
+    success: boolean;
+    outputFiles?: string[];
+    error?: string;
+}
+
+type PythonOutput = ProgressInfo | ResultInfo;
 
 /**
  * 执行 Python 后端脚本进行文件转换
@@ -18,7 +33,8 @@ export function executePythonScript(
     conversionType: ConversionType,
     outputDir: string,
     context: vscode.ExtensionContext,
-    conversionOptions?: any
+    conversionOptions?: any,
+    progressCallback?: (message: string, percentage?: number) => void
 ): Promise<PythonResponse> {
     
     return new Promise((resolve, reject) => {
@@ -38,8 +54,8 @@ export function executePythonScript(
             '--output-dir', outputDir
         ];
         
-        // 添加转换选项参数（对DOCX和PDF转换有效）
-        if (conversionOptions && (conversionType === 'md-to-docx' || conversionType === 'md-to-pdf')) {
+        // 添加转换选项参数（对DOCX, PDF, PPTX转换有效）
+        if (conversionOptions && ['md-to-docx', 'md-to-pdf', 'md-to-pptx'].includes(conversionType)) {
             if (conversionOptions.useTemplate === false) {
                 // 如果不使用模板，明确传递空模板路径
                 args.push('--template-path', '');
@@ -73,56 +89,62 @@ export function executePythonScript(
 
         const pyProcess = spawn(pythonPath, args);
 
-        let stdout = '';
-        let stderr = '';
+        let stdoutBuffer = '';
 
         pyProcess.stdout.on('data', (data) => {
-            stdout += data.toString();
+            stdoutBuffer += data.toString();
+            
+            // 尝试处理缓冲区中的每一行
+            let lines = stdoutBuffer.split('\n');
+            // 保留最后一个不完整的行（如果有）
+            stdoutBuffer = lines[lines.length - 1];
+            // 处理完整的行
+            lines.slice(0, -1).forEach(line => {
+                try {
+                    const output = JSON.parse(line) as PythonOutput;
+                    if (output.type === 'progress' && progressCallback) {
+                        progressCallback(output.stage, output.percentage);
+                    } else if (output.type === 'result') {
+                        if (output.success) {
+                            resolve({
+                                success: true,
+                                outputFiles: output.outputFiles
+                            });
+                        } else {
+                            reject(new Error(output.error || 'Python 脚本报告了一个未知错误'));
+                        }
+                    }
+                } catch (e) {
+                    console.log('非JSON输出:', line);
+                }
+            });
         });
 
         pyProcess.stderr.on('data', (data) => {
-            stderr += data.toString();
+            console.error(`Python错误输出: ${data}`);
         });
 
         pyProcess.on('close', (code) => {
-            if (code === 0) {
+            if (code !== 0 && stdoutBuffer.trim()) {
+                // 如果进程异常退出且还有未处理的输出，尝试解析
                 try {
-                    // 解析 Python 脚本返回的 JSON 成功结果
-                    const response: PythonResponse = JSON.parse(stdout.trim());
-                    resolve(response);
-                } catch (e: any) {
-                    reject({ 
-                        success: false, 
-                        error: `无法解析 Python 脚本成功输出：${e.message}\n输出内容：${stdout}` 
-                    });
-                }
-            } else {
-                // 当脚本以非零代码退出时，记录所有输出以供诊断
-                console.error(`Python script exited with code: ${code}`);
-                console.error("--- STDOUT ---");
-                console.error(stdout);
-                console.error("--- STDERR ---");
-                console.error(stderr);
-                
-                // 优先尝试解析 stdout，因为它可能包含详细的 JSON 错误报告
-                try {
-                    const errorResponse: PythonResponse = JSON.parse(stdout.trim());
-                    reject(errorResponse); // 即使成功解析，也将其视为一个错误并拒绝
+                    const finalOutput = JSON.parse(stdoutBuffer.trim()) as PythonOutput;
+                    if (finalOutput.type === 'result' && !finalOutput.success) {
+                        const errorMessage = finalOutput.error || `Python 脚本异常退出，代码：${code}`;
+                        reject(new Error(errorMessage));
+                        return;
+                    }
                 } catch (e) {
-                    // 如果解析 stdout 失败，则回退到使用 stderr 或退出代码
-                    reject({ 
-                        success: false, 
-                        error: stderr || `Python 脚本退出，代码：${code}` 
-                    });
+                    // 解析失败，使用通用错误信息
+                    reject(new Error(`Python 脚本异常退出，代码：${code}。输出：${stdoutBuffer.trim()}`));
                 }
+            } else if (code !== 0) {
+                 reject(new Error(`Python 脚本异常退出，代码：${code}`));
             }
         });
 
         pyProcess.on('error', (err) => {
-            reject({ 
-                success: false, 
-                error: `无法启动 Python 脚本：${err.message}` 
-            });
+            reject(new Error(`无法启动 Python 脚本：${err.message}`));
         });
     });
 }
