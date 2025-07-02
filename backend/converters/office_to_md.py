@@ -228,6 +228,17 @@ class OfficeToMdConverter(BaseConverter):
             for page in reader.pages:
                 page_text = page.extract_text()
                 if page_text.strip():
+                    # 清理页面文本中的编码问题
+                    try:
+                        # 移除代理字符
+                        page_text = page_text.encode('utf-8', errors='ignore').decode('utf-8')
+                        # 清理控制字符
+                        page_text = ''.join(char for char in page_text if ord(char) >= 32 or char in '\n\t\r')
+                    except Exception as e:
+                        self.logger.warning(f"清理页面文本时出错: {e}")
+                        # 使用更激进的清理策略
+                        page_text = page_text.encode('ascii', errors='ignore').decode('ascii')
+                    
                     text += page_text + "\n\n"
                     
             # 如果提取的文本太少,可能是扫描版PDF,使用OCR
@@ -447,6 +458,17 @@ class OfficeToMdConverter(BaseConverter):
         
         output_file = output_path / f"{file_name}.md"
         
+        # 清理文本中的代理字符和其他不可打印字符
+        try:
+            # 移除代理字符和其他无效字符
+            md_text = md_text.encode('utf-8', errors='ignore').decode('utf-8')
+            # 进一步清理控制字符，但保留换行符和制表符
+            md_text = ''.join(char for char in md_text if ord(char) >= 32 or char in '\n\t\r')
+        except Exception as e:
+            self.logger.warning(f"文本清理时出错: {e}，将使用替换策略")
+            # 如果上述方法失败，使用更激进的清理方法
+            md_text = md_text.encode('ascii', errors='ignore').decode('ascii')
+        
         # 添加文件头
         header = f"""---
 title: {file_name} Document
@@ -458,9 +480,20 @@ converted_date: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 """
         md_text = header + md_text
         
-        # 保存文件
-        with open(output_file, 'w', encoding='utf-8') as f:
-            f.write(md_text)
+        # 保存文件，使用错误处理策略
+        try:
+            with open(output_file, 'w', encoding='utf-8', errors='replace') as f:
+                f.write(md_text)
+        except Exception as e:
+            self.logger.error(f"保存文件时出错: {e}")
+            # 尝试使用ASCII编码作为备选方案
+            try:
+                with open(output_file, 'w', encoding='ascii', errors='replace') as f:
+                    f.write(md_text)
+                self.logger.warning(f"使用ASCII编码保存文件: {output_file}")
+            except Exception as e2:
+                self.logger.error(f"使用ASCII编码保存文件也失败: {e2}")
+                raise e2
             
         self.logger.info(f"已保存到 {output_file}")
         return str(output_file) 
