@@ -239,12 +239,6 @@ class MdToOfficeConverter(BaseConverter):
         """Converts a Markdown file to DOCX using a unified pandoc approach."""
         input_path = Path(input_file)
         
-        if to_pdf:
-            # For PDF conversion, we still need a temporary DOCX file.
-            output_file_path = self.output_dir / f"{input_path.stem}_temp_for_pdf_{os.getpid()}.docx"
-        else:
-            output_file_path = self.output_dir / f"{input_path.stem}.docx"
-
         processed_content, temp_images = self._preprocess_markdown(input_file)
         if processed_content is None:
             return None
@@ -259,34 +253,98 @@ class MdToOfficeConverter(BaseConverter):
                 self.logger.error("Pandoc not found. Please install pandoc and add it to your PATH.")
                 raise FileNotFoundError("Pandoc not found. Please install pandoc and add it to your system's PATH.")
 
-            cmd = [
-                'pandoc', str(processed_md_file),
-                '-o', str(output_file_path),
-                '--resource-path=' + str(input_path.parent),
-                '--quiet'
-            ]
+            # Decide whether to use the advanced template feature
+            use_advanced_template = (
+                self.template_path and 
+                Path(self.template_path).exists() and 
+                WIN32COM_AVAILABLE
+            )
 
-            # Use --reference-doc for styling, same as PPTX conversion
-            if self.template_path and Path(self.template_path).exists():
-                self.logger.info(f"使用DOCX模板进行样式转换: {self.template_path}")
-                cmd.extend(['--reference-doc', self.template_path])
+            if use_advanced_template:
+                # --- Advanced Template Path (Windows Only) ---
+                self.logger.info(f"使用高级模板功能: {self.template_path}")
+                
+                # 1. Create a temporary content-only DOCX
+                temp_content_docx = self.output_dir / f"{input_path.stem}_content_{os.getpid()}.docx"
+                all_temp_files.append(str(temp_content_docx))
+                
+                cmd = [
+                    'pandoc', str(processed_md_file),
+                    '-o', str(temp_content_docx),
+                    '--resource-path=' + str(input_path.parent),
+                    '--quiet'
+                ]
+                if self.promote_headings:
+                    cmd.append('--shift-heading-level-by=-1')
+                    
+                subprocess.run(cmd, check=True, capture_output=True, text=True, encoding='utf-8')
+
+                # 2. Get title and compose final document
+                title = self._get_title_from_md(processed_content, input_path)
+                final_output_path = self._copy_template_and_append_content(
+                    self.template_path,
+                    str(temp_content_docx),
+                    title,
+                    original_input_file=input_file
+                )
+
+                # 3. Update TOC if composition was successful
+                if final_output_path and Path(final_output_path).exists() and final_output_path != str(temp_content_docx):
+                    self._update_toc(final_output_path)
+                    self.logger.info(f"成功转换并应用模板: {input_file} -> {final_output_path}")
+                    
+                    # If converting to PDF, this is the intermediate file.
+                    if to_pdf:
+                        return final_output_path
+                    
+                    # Otherwise, it's the final product, we can clean up the content docx
+                    # Note: all_temp_files will be cleaned up in the finally block.
+                    return final_output_path
+                else:
+                    self.logger.warning("模板合成失败，返回无模板的DOCX文件。")
+                    # It failed and returned the original content_path. We must rename it to a non-temp name.
+                    final_path_on_failure = self.output_dir / f"{input_path.stem}.docx"
+                    shutil.move(temp_content_docx, final_path_on_failure)
+                    all_temp_files.remove(str(temp_content_docx)) # Don't delete it
+                    return str(final_path_on_failure)
             else:
-                self.logger.info("未提供DOCX模板，使用Pandoc默认样式")
+                # --- Simple/Cross-Platform Path ---
+                if self.template_path:
+                    if not WIN32COM_AVAILABLE:
+                        self.logger.warning("检测到非Windows环境，模板功能受限（仅应用样式）。")
+                    self.logger.info(f"使用DOCX模板进行样式转换 (reference-doc): {self.template_path}")
+                else:
+                    self.logger.info("未提供DOCX模板，使用Pandoc默认样式")
 
-            if self.promote_headings:
-                cmd.append('--shift-heading-level-by=-1')
-            
-            subprocess.run(cmd, check=True, capture_output=True, text=True, encoding='utf-8')
-            
-            self.logger.info(f"Successfully converted {input_file} to {output_file_path}")
-            return str(output_file_path)
+                if to_pdf:
+                    output_file_path = self.output_dir / f"{input_path.stem}_temp_for_pdf_{os.getpid()}.docx"
+                else:
+                    output_file_path = self.output_dir / f"{input_path.stem}.docx"
+                
+                cmd = [
+                    'pandoc', str(processed_md_file),
+                    '-o', str(output_file_path),
+                    '--resource-path=' + str(input_path.parent),
+                    '--quiet'
+                ]
+                # Use --reference-doc for styling, same as PPTX conversion
+                if self.template_path and Path(self.template_path).exists():
+                    cmd.extend(['--reference-doc', self.template_path])
+
+                if self.promote_headings:
+                    cmd.append('--shift-heading-level-by=-1')
+                
+                subprocess.run(cmd, check=True, capture_output=True, text=True, encoding='utf-8')
+                
+                self.logger.info(f"成功转换 {input_file} to {output_file_path}")
+                return str(output_file_path)
 
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
             error_message = e.stderr if hasattr(e, 'stderr') else str(e)
             self.logger.error(f"Failed during DOCX conversion: {error_message}")
             return None
         finally:
-            self._cleanup_temp_files(all_temp_files, str(processed_md_file), input_file)
+            self._cleanup_temp_files(all_temp_files)
 
     def _update_toc(self, docx_path: str):
         """Updates the Table of Contents in a DOCX file using Word COM object."""
@@ -524,18 +582,18 @@ class MdToOfficeConverter(BaseConverter):
         # 这里可以添加具体的图片标题删除逻辑
         return content
     
-    def _copy_template_and_append_content(self, template_path: str, content_path: str, title: str) -> str:
+    def _copy_template_and_append_content(self, template_path: str, content_path: str, title: str, original_input_file: str) -> str:
         """
-        [DEPRECATED] This method used a complex docxcompose process.
-        It's kept for reference but no longer used in the main conversion flow.
+        Applies a template by rendering variables and composing it with the content document.
+        This uses `DocxTemplate` and `docxcompose`.
         """
         if not WIN32COM_AVAILABLE:
             self.logger.warning("在非Windows系统上无法使用模板功能，将使用简单转换")
             return content_path
             
-        # 创建输出文件路径
-        content_file = Path(content_path)
-        output_path = str(content_file.parent / f"{content_file.stem.replace('_content_', '').replace(f'_{os.getpid()}', '')}.docx")
+        # Create a deterministic final output path based on the original input file.
+        original_input_path = Path(original_input_file)
+        output_path = str(self.output_dir / f"{original_input_path.stem}.docx")
         
         try:
             # 获取模板上下文数据
@@ -586,6 +644,7 @@ class MdToOfficeConverter(BaseConverter):
             self.logger.error(f"模板处理失败: {e}")
             import traceback
             self.logger.error(f"详细错误信息: {traceback.format_exc()}")
+            # On failure, return the path to the original content so it can be handled upstream
             return content_path
     
     def _post_process_html(self, html_file: str, processed_md_file: str):
