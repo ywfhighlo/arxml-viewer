@@ -104,10 +104,15 @@ export function executePythonScript(
 
         const pyProcess = spawn(pythonPath, args);
 
+        // **关键修复**: 明确设置stdout和stderr的编码为utf8
+        // 这可以防止在Windows上因默认编码不同而导致的中文乱码问题
+        pyProcess.stdout.setEncoding('utf8');
+        pyProcess.stderr.setEncoding('utf8');
+
         let stdoutBuffer = '';
 
         pyProcess.stdout.on('data', (data) => {
-            stdoutBuffer += data.toString();
+            stdoutBuffer += data;
             
             // 尝试处理缓冲区中的每一行
             let lines = stdoutBuffer.split('\n');
@@ -116,7 +121,10 @@ export function executePythonScript(
             // 处理完整的行
             lines.slice(0, -1).forEach(line => {
                 try {
-                    const output = JSON.parse(line) as PythonOutput;
+                    // Base64解码
+                    const decodedLine = Buffer.from(line, 'base64').toString('utf8');
+                    const output = JSON.parse(decodedLine) as PythonOutput;
+
                     if (output.type === 'progress' && progressCallback) {
                         progressCallback(output.stage, output.percentage);
                     } else if (output.type === 'result') {
@@ -143,7 +151,8 @@ export function executePythonScript(
             if (code !== 0 && stdoutBuffer.trim()) {
                 // 如果进程异常退出且还有未处理的输出，尝试解析
                 try {
-                    const finalOutput = JSON.parse(stdoutBuffer.trim()) as PythonOutput;
+                    const decodedLine = Buffer.from(stdoutBuffer.trim(), 'base64').toString('utf8');
+                    const finalOutput = JSON.parse(decodedLine) as PythonOutput;
                     if (finalOutput.type === 'result' && !finalOutput.success) {
                         const errorMessage = finalOutput.error || `Python 脚本异常退出，代码：${code}`;
                         reject(new Error(errorMessage));

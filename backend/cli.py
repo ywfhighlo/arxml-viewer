@@ -9,6 +9,7 @@ import sys
 import json
 import os
 import logging
+import base64
 from typing import Dict, Type
 
 # 添加当前目录到路径，以便导入 converters 包
@@ -85,7 +86,11 @@ def main():
         }
         if percentage is not None:
             progress["percentage"] = percentage
-        print(json.dumps(progress, ensure_ascii=False), flush=True)
+        
+        # Base64编码以确保UTF-8内容安全通过stdout
+        json_str = json.dumps(progress, ensure_ascii=False)
+        encoded_str = base64.b64encode(json_str.encode('utf-8')).decode('ascii')
+        print(encoded_str, flush=True)
 
     try:
         # 报告开始转换
@@ -135,7 +140,10 @@ def main():
             "success": success,
             "outputFiles": output_files
         }
-        print(json.dumps(result, ensure_ascii=False), flush=True)
+        # Base64编码
+        json_str = json.dumps(result, ensure_ascii=False)
+        encoded_str = base64.b64encode(json_str.encode('utf-8')).decode('ascii')
+        print(encoded_str, flush=True)
 
     except Exception as e:
         # 报告错误
@@ -144,7 +152,10 @@ def main():
             "success": False,
             "error": str(e)
         }
-        print(json.dumps(error_result, ensure_ascii=False), flush=True)
+        # Base64编码
+        json_str = json.dumps(error_result, ensure_ascii=False)
+        encoded_str = base64.b64encode(json_str.encode('utf-8')).decode('ascii')
+        print(encoded_str, flush=True)
         sys.exit(1)
 
 if __name__ == '__main__':
