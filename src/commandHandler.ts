@@ -56,7 +56,7 @@ export async function handleConvertCommand(
                         if (!templatePath) {
                             templatePath = path.join(context.extensionPath, 'backend', 'converters', 'templates', 'template.docx');
                         }
-                        conversionOptions.templatePath = templatePath;
+                        conversionOptions.docxTemplatePath = templatePath;
                     }
                 } else if (conversionType === 'md-to-pptx') {
                     if (config.get<boolean>('usePptxTemplate', true)) {
@@ -64,7 +64,7 @@ export async function handleConvertCommand(
                         if (!templatePath) {
                             templatePath = path.join(context.extensionPath, 'backend', 'converters', 'templates', 'template.pptx');
                         }
-                        conversionOptions.templatePath = templatePath;
+                        conversionOptions.pptxTemplatePath = templatePath;
                     }
                 }
             } else if (conversionType === 'office-to-md') {

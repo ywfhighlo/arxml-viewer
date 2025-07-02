@@ -54,20 +54,16 @@ export function executePythonScript(
             '--output-dir', outputDir
         ];
         
-        // 添加转换选项参数（对DOCX, PDF, PPTX转换有效）
+        // 添加转换选项参数
         if (conversionOptions) {
-            let templatePathArg = '';
-            
-            if (conversionType === 'md-to-docx' || conversionType === 'md-to-pdf') {
-                templatePathArg = '--docx-template-path';
-            } else if (conversionType === 'md-to-pptx') {
-                templatePathArg = '--pptx-template-path';
+            // DOCX模板参数
+            if (conversionOptions.docxTemplatePath) {
+                args.push('--docx-template-path', conversionOptions.docxTemplatePath);
             }
 
-            // 如果 conversionOptions 中存在 templatePath，则传递它
-            // 这是由 commandHandler 决定的，要么是自定义路径，要么是默认路径
-            if (templatePathArg && conversionOptions.templatePath) {
-                args.push(templatePathArg, conversionOptions.templatePath);
+            // PPTX模板参数
+            if (conversionOptions.pptxTemplatePath) {
+                args.push('--pptx-template-path', conversionOptions.pptxTemplatePath);
             }
 
             // 添加项目信息参数
