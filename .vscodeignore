@@ -4,6 +4,10 @@
 node_modules/
 src/
 test/
+docs/
+.venv/
+python-backend/.venv/
+**/__pycache__/
 
 # Exclude build artifacts
 *.vsix

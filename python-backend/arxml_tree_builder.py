@@ -28,7 +28,7 @@ class ARXMLTreeBuilder:
         self.skip_tags = {
             'DESC', 'L-2', 'RELATED-TRACE-ITEM-REF', 'LOWER-MULTIPLICITY',
             'UPPER-MULTIPLICITY', 'SCOPE', 'ORIGIN', 'POST-BUILD-VARIANT-MULTIPLICITY',
-            'POST-BUILD-VARIANT-VALUE', 'REQUIRES-INDEX', 'VALUE-CONFIG-CLASSES',
+            'POST-BUILD-VARIANT-VALUE', 'REQUIRES-INDEX',
             'MULTIPLICITY-CONFIG-CLASSES', 'SYMBOLIC-NAME-VALUE', 'MAX', 'MIN',
             'CONTAINERS', 'SUB-CONTAINERS', 'PARAMETER-VALUES', 'PARAMETERS',
             'ECUC-NUMERICAL-PARAM-VALUE', 'ECUC-TEXTUAL-PARAM-VALUE',
@@ -275,6 +275,9 @@ class ARXMLTreeBuilder:
         desc_elem = element.find('.//{*}L-2')
         description = desc_elem.text if desc_elem is not None and desc_elem.text else ''
         
+        # 获取配置类别
+        config_classes = self._extract_value_config_classes(element)
+        
         # 生成参数ID
         param_id = f"param_{abs(hash(short_name))}"
         
@@ -289,9 +292,26 @@ class ARXMLTreeBuilder:
                 "originalTag": element.tag,
                 "definitionRef": "",  # 参数定义没有引用
                 "tooltip": f"参数定义: {short_name}",
-                "description": f"{param_type} - {short_name}"
+                "description": f"{param_type} - {short_name}",
+                "configClasses": config_classes
             }
         }
+    
+    def _extract_value_config_classes(self, element: ET.Element) -> List[Dict[str, str]]:
+        """提取参数的配置类别和变体对"""
+        config_pairs = []
+        vcc_element = element.find('.//{*}VALUE-CONFIG-CLASSES')
+        if vcc_element is not None:
+            for vcc_child in vcc_element.findall('.//{*}ECUC-VALUE-CONFIGURATION-CLASS'):
+                class_elem = vcc_child.find('.//{*}CONFIG-CLASS')
+                variant_elem = vcc_child.find('.//{*}CONFIG-VARIANT')
+
+                config_class = class_elem.text.strip() if class_elem is not None and class_elem.text else None
+                config_variant = variant_elem.text.strip() if variant_elem is not None and variant_elem.text else None
+
+                if config_class and config_variant:
+                    config_pairs.append({"class": config_class, "variant": config_variant})
+        return config_pairs
     
     def _build_container_node(self, element: ET.Element, path: str) -> Dict[str, Any]:
         """构建容器节点"""
