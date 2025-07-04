@@ -299,6 +299,22 @@
           ],
           "description": "预览位置：beside - 在编辑器旁边，active - 在当前编辑器位置",
           "scope": "window"
+        },
+        "arxmlTreePreviewer.configVariantDisplay": {
+          "type": "string",
+          "default": "VARIANT-POST-BUILD",
+          "enum": [
+            "VARIANT-POST-BUILD",
+            "VARIANT-PRE-COMPILE",
+            "VARIANT-LINK-TIME"
+          ],
+          "enumDescriptions": [
+            "显示后构建变体的配置类型（运行时可配置）",
+            "显示预编译变体的配置类型（编译时确定）",
+            "显示链接时变体的配置类型（链接时确定）"
+          ],
+          "description": "选择显示哪种变体的配置类型标识",
+          "scope": "window"
         }
       }
     }

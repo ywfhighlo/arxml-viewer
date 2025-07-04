@@ -93,6 +93,24 @@ export class ArxmlCustomEditorProvider implements vscode.CustomTextEditorProvide
         }
     }
 
+    public updateSettings(): void {
+        if (this.currentWebview) {
+            // 获取最新的配置
+            const config = vscode.workspace.getConfiguration('arxmlTreePreviewer');
+            const configVariantDisplay = config.get<string>('configVariantDisplay', 'VARIANT-POST-BUILD');
+            
+            // 发送配置更新消息
+            this.currentWebview.postMessage({
+                type: 'settings',
+                settings: {
+                    configVariantDisplay: configVariantDisplay
+                }
+            });
+            
+            console.log('Settings updated and sent to webview:', { configVariantDisplay });
+        }
+    }
+
     private getWebviewContent(webview: vscode.Webview, uri: vscode.Uri): string {
         return `
             <!DOCTYPE html>
@@ -391,16 +409,90 @@ export class ArxmlCustomEditorProvider implements vscode.CustomTextEditorProvide
                         padding: 8px;
                         font-size: 11px;
                         color: var(--vscode-editorHoverWidget-foreground);
-                        max-width: 300px;
+                        max-width: 400px;
                         z-index: 1000;
                         box-shadow: 0 2px 8px rgba(0,0,0,0.2);
                         display: none;
                         line-height: 1.4;
                         word-wrap: break-word;
+                        white-space: normal;
+                        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
                     }
                     
                     .tooltip.show {
                         display: block;
+                    }
+                    
+                    /* 配置类型徽章样式 */
+                    .config-badge {
+                        display: inline-block;
+                        padding: 1px 6px;
+                        margin-left: 6px;
+                        font-size: 9px;
+                        font-weight: 600;
+                        text-align: center;
+                        border-radius: 10px;
+                        letter-spacing: 0.5px;
+                        vertical-align: middle;
+                        line-height: 1.2;
+                        min-width: 20px;
+                        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+                    }
+                    
+                    /* PB (POST-BUILD) - 蓝色系 */
+                    .config-badge.pb {
+                        background-color: #0078d4;
+                        color: white;
+                        border: 1px solid #106ebe;
+                    }
+                    
+                    /* PC (PRE-COMPILE) - 绿色系 */
+                    .config-badge.pc {
+                        background-color: #107c10;
+                        color: white;
+                        border: 1px solid #0e6e0e;
+                    }
+                    
+                    /* LK (LINK-TIME/LINK) - 橙色系 */
+                    .config-badge.lk {
+                        background-color: #ff8c00;
+                        color: white;
+                        border: 1px solid #e67e00;
+                    }
+                    
+                    /* PI (PUBLISHED-INFORMATION) - 紫色系 */
+                    .config-badge.pi {
+                        background-color: #8b5cf6;
+                        color: white;
+                        border: 1px solid #7c3aed;
+                    }
+                    
+                    /* 徽章在悬停时的效果 */
+                    .config-badge:hover {
+                        transform: translateY(-1px);
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                        transition: all 0.2s ease;
+                    }
+                    
+                    /* 在深色主题下的适配 */
+                    .vscode-dark .config-badge.pb {
+                        background-color: #1f7ce8;
+                        border-color: #1a6cc7;
+                    }
+                    
+                    .vscode-dark .config-badge.pc {
+                        background-color: #16a016;
+                        border-color: #138a13;
+                    }
+                    
+                    .vscode-dark .config-badge.lk {
+                        background-color: #ff9500;
+                        border-color: #e6851a;
+                    }
+                    
+                    .vscode-dark .config-badge.pi {
+                        background-color: #a855f7;
+                        border-color: #9333ea;
                     }
                     
                     /* 错误状态样式 */
@@ -569,6 +661,11 @@ export class ArxmlCustomEditorProvider implements vscode.CustomTextEditorProvide
                     let currentTreeData = null;
                     let selectedNode = null;
                     let breadcrumbPath = [];
+                    
+                    // 全局设置对象
+                    window.arxmlSettings = {
+                        configVariantDisplay: 'VARIANT-POST-BUILD' // 默认值
+                    };
 
                     // 处理webview消息
                     window.addEventListener('message', event => {
@@ -588,6 +685,20 @@ export class ArxmlCustomEditorProvider implements vscode.CustomTextEditorProvide
                                 break;
                             case 'saveStatus':
                                 handleSaveStatus(message.status, message.message);
+                                break;
+                            case 'settings':
+                                // 更新设置
+                                if (message.settings) {
+                                    const oldSettings = { ...window.arxmlSettings };
+                                    window.arxmlSettings = { ...window.arxmlSettings, ...message.settings };
+                                    console.log('Settings updated:', window.arxmlSettings);
+                                    
+                                    // 如果配置变体显示设置发生变化，重新渲染属性面板
+                                    if (oldSettings.configVariantDisplay !== window.arxmlSettings.configVariantDisplay && selectedNode) {
+                                        console.log('Config variant display changed, refreshing property panel');
+                                        updatePropertyPanel(selectedNode);
+                                    }
+                                }
                                 break;
                         }
                     });
@@ -825,6 +936,12 @@ export class ArxmlCustomEditorProvider implements vscode.CustomTextEditorProvide
                         html += '<div class="property-group-title">Configuration Parameters</div>';
                         
                         node.parameters.forEach(param => {
+                            // 调试日志输出
+                            console.log('Rendering parameter:', param.name || param.shortName, {
+                                configClasses: param.metadata?.configClasses || [],
+                                displayType: getConfigTypeDisplay(param.metadata?.configClasses || [])
+                            });
+                            
                             html += renderParameterField(param);
                         });
                         
@@ -835,18 +952,101 @@ export class ArxmlCustomEditorProvider implements vscode.CustomTextEditorProvide
                         attachFormEventListeners();
                     }
 
+                    function getConfigTypeDisplay(configClasses) {
+                        /**
+                         * 根据设计文档，显示规则：
+                         * - 根据配置项选择显示哪种变体的配置类型
+                         * - 支持的变体：VARIANT-POST-BUILD, VARIANT-PRE-COMPILE, VARIANT-LINK-TIME
+                         * - 返回徽章HTML，而不是简单的文本
+                         * - POST-BUILD → 蓝色徽章 "PB"
+                         * - PRE-COMPILE → 绿色徽章 "PC"  
+                         * - LINK-TIME → 橙色徽章 "LK"
+                         * - LINK → 橙色徽章 "LK"
+                         * - PUBLISHED-INFORMATION → 紫色徽章 "PI"
+                         * - 找不到对应条目 → 不显示任何标记
+                         */
+                        if (!configClasses || configClasses.length === 0) {
+                            return '';
+                        }
+                        
+                        // 获取配置的变体类型（默认为 VARIANT-POST-BUILD）
+                        const configVariant = window.arxmlSettings?.configVariantDisplay || 'VARIANT-POST-BUILD';
+                        
+                        // 查找指定变体的条目
+                        const targetEntry = configClasses.find(entry => 
+                            entry.variant === configVariant
+                        );
+                        
+                        if (!targetEntry) {
+                            return '';
+                        }
+                        
+                        // 根据 class 值返回对应的徽章HTML
+                        switch (targetEntry.class) {
+                            case 'POST-BUILD':
+                                return '<span class="config-badge pb">PB</span>';
+                            case 'PRE-COMPILE':
+                                return '<span class="config-badge pc">PC</span>';
+                            case 'LINK-TIME':
+                                return '<span class="config-badge lk">LK</span>';
+                            case 'LINK':
+                                return '<span class="config-badge lk">LK</span>';
+                            case 'PUBLISHED-INFORMATION':
+                                return '<span class="config-badge pi">PI</span>';
+                            default:
+                                return '';
+                        }
+                    }
+                    
+                    function buildTooltipContent(param, description, configClasses) {
+                        /**
+                         * 构建工具提示内容：
+                         * 1. 参数的 description（描述）
+                         * 2. 换行后显示 "Config Classes:"
+                         * 3. 按照固定变体顺序显示class值，格式为 "POST-BUILD / PRE-COMPILE / LINK-TIME"
+                         */
+                        let tooltip = description || '';
+                        
+                        if (configClasses && configClasses.length > 0) {
+                            if (tooltip) {
+                                tooltip += '\\n\\n';
+                            }
+                            
+                            const orderedVariants = ['VARIANT-POST-BUILD', 'VARIANT-PRE-COMPILE', 'VARIANT-LINK-TIME'];
+                            const displayClasses = orderedVariants.map(variant => {
+                                const entry = configClasses.find(c => c.variant === variant);
+                                return entry ? entry.class : '-';
+                            });
+                            
+                            tooltip += 'Config Classes:\\n';
+                            tooltip += displayClasses.join(' / ');
+                        }
+                        
+                        return tooltip;
+                    }
+
                     function renderParameterField(param) {
                         const paramName = param.name || param.shortName || 'Unknown Parameter';
                         const paramValue = param.value || '';
                         const paramType = param.type || 'string';
                         const description = param.description || param.metadata?.description || '';
                         const isRequired = param.required || false;
+                        const configClasses = param.metadata?.configClasses || [];
+                        
+                        // 获取配置类型显示HTML
+                        const configTypeDisplay = getConfigTypeDisplay(configClasses);
+                        
+                        // 构建工具提示内容
+                        const tooltipContent = buildTooltipContent(param, description, configClasses);
                         
                         let html = '<div class="form-row" data-param-name="' + escapeHtml(paramName) + '">';
                         
-                        // 参数名标签
-                        html += '<div class="form-label' + (isRequired ? ' required' : '') + '" title="' + escapeHtml(description) + '">';
+                        // 参数名标签（现在包含徽章HTML）
+                        html += '<div class="form-label' + (isRequired ? ' required' : '') + '" title="' + escapeHtml(tooltipContent) + '">';
                         html += escapeHtml(paramName);
+                        if (configTypeDisplay) {
+                            html += configTypeDisplay; // 直接添加HTML，不需要转义
+                        }
                         html += '</div>';
                         
                         // 参数值
@@ -923,7 +1123,8 @@ export class ArxmlCustomEditorProvider implements vscode.CustomTextEditorProvide
                             // 创建tooltip元素
                             const tooltipElement = document.createElement('div');
                             tooltipElement.className = 'tooltip';
-                            tooltipElement.textContent = tooltip;
+                            // 使用innerHTML来支持换行显示
+                            tooltipElement.innerHTML = tooltip.replace(/\\n/g, '<br>');
                             label.parentElement.appendChild(tooltipElement);
                             
                             // 移除原始title属性，避免浏览器默认tooltip
@@ -979,7 +1180,10 @@ export class ArxmlCustomEditorProvider implements vscode.CustomTextEditorProvide
                                 }
                             });
                             
+                            // 调试日志输出
                             console.log('Parameter updated:', paramName, ':', oldValue, '->', newValue);
+                            console.log('Parameter configClasses:', param.metadata?.configClasses || []);
+                            console.log('Selected config type:', getConfigTypeDisplay(param.metadata?.configClasses || []));
                         }
                     }
 
@@ -1174,6 +1378,12 @@ export class ArxmlCustomEditorProvider implements vscode.CustomTextEditorProvide
             if (result.success && result.treeStructure) {
                     console.log('Python后端解析成功');
                     vscode.window.showInformationMessage('✅ Python后端解析成功！');
+                
+                // 获取配置信息
+                const config = vscode.workspace.getConfiguration('arxmlTreePreviewer');
+                const configVariantDisplay = config.get<string>('configVariantDisplay', 'VARIANT-POST-BUILD');
+                
+                // 发送数据更新消息
                 webview.postMessage({
                     type: 'update',
                         data: {
@@ -1183,6 +1393,15 @@ export class ArxmlCustomEditorProvider implements vscode.CustomTextEditorProvide
                             metadata: result.metadata
                         }
                 });
+                
+                // 发送配置信息
+                webview.postMessage({
+                    type: 'settings',
+                    settings: {
+                        configVariantDisplay: configVariantDisplay
+                    }
+                });
+                
                     return;
             } else {
                     console.log('Python后端解析失败，降级到基本预览:', result.error);

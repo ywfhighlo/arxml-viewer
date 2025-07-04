@@ -124,6 +124,15 @@ export async function activate(context: vscode.ExtensionContext) {
             }
         });
 
+        // 监听配置变化
+        const configChangeListener = vscode.workspace.onDidChangeConfiguration(event => {
+            if (event.affectsConfiguration('arxmlTreePreviewer.configVariantDisplay')) {
+                console.log('Configuration changed: configVariantDisplay');
+                // 通知自定义编辑器更新配置
+                customEditorProvider.updateSettings();
+            }
+        });
+
         // 添加所有订阅
         context.subscriptions.push(
             customEditorDisposable,
@@ -132,7 +141,8 @@ export async function activate(context: vscode.ExtensionContext) {
             testCustomEditorCommand,
             expandAllCommand,
             collapseAllCommand,
-            refreshPreviewCommand
+            refreshPreviewCommand,
+            configChangeListener
         );
     
         console.log('✅ All providers and commands registered successfully');
