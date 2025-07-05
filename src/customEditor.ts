@@ -625,13 +625,29 @@ export class ArxmlCustomEditorProvider implements vscode.CustomTextEditorProvide
                     ::-webkit-scrollbar-thumb:hover {
                         background: var(--vscode-scrollbarSlider-hoverBackground);
                     }
+
+                    .custom-tooltip {
+                        display: none;
+                        position: fixed;
+                        z-index: 1000;
+                        padding: 8px 12px;
+                        background-color: var(--vscode-editor-hoverHighlightBackground);
+                        border: 1px solid var(--vscode-panel-border);
+                        border-radius: 4px;
+                        font-size: 11px;
+                        line-height: 1.4;
+                        max-width: 400px;
+                        white-space: pre-wrap;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+                        pointer-events: none; /* So the tooltip doesn't interfere with mouse events */
+                    }
                 </style>
             </head>
             <body>
-                <!-- 面包屑导航 -->
+                <div class="custom-tooltip"></div>
                 <div class="breadcrumb-bar">
-                    <div class="breadcrumb" id="breadcrumb">
-                        <span class="breadcrumb-item">ARXML Configuration</span>
+                    <div id="breadcrumb-container" class="breadcrumb">
+                        <!-- Breadcrumb items will be populated here -->
                     </div>
                 </div>
                 
@@ -666,6 +682,66 @@ export class ArxmlCustomEditorProvider implements vscode.CustomTextEditorProvide
                     window.arxmlSettings = {
                         configVariantDisplay: 'VARIANT-POST-BUILD' // 默认值
                     };
+
+                    const tooltip = document.querySelector('.custom-tooltip');
+
+                    document.addEventListener('mouseover', function(e) {
+                        const target = e.target.closest('[data-tooltip]');
+                        if (target) {
+                            const tooltipText = target.getAttribute('data-tooltip');
+                            if (tooltipText) {
+                                // 使用 innerText 来处理换行符
+                                tooltip.innerText = tooltipText;
+                                tooltip.style.display = 'block';
+                            }
+                        }
+                    });
+
+                    document.addEventListener('mouseout', function(e) {
+                        const target = e.target.closest('[data-tooltip]');
+                        if (target) {
+                            tooltip.style.display = 'none';
+                        }
+                    });
+
+                    document.addEventListener('mousemove', function(e) {
+                        if (tooltip.style.display === 'block') {
+                            const yOffset = 20;
+                            const xOffset = 10;
+                            
+                            const winHeight = window.innerHeight;
+                            const tooltipHeight = tooltip.offsetHeight;
+                            const tooltipWidth = tooltip.offsetWidth;
+
+                            let newY, newX;
+                            
+                            // Position below cursor if in top half of screen, otherwise above
+                            if (e.clientY < winHeight / 2) {
+                                newY = e.clientY + yOffset;
+                            } else {
+                                newY = e.clientY - tooltipHeight - (yOffset / 2);
+                            }
+                            
+                            newX = e.clientX + xOffset;
+                            
+                            // Prevent tooltip from going off-screen horizontally
+                            if (newX + tooltipWidth > window.innerWidth) {
+                                newX = window.innerWidth - tooltipWidth - xOffset;
+                            }
+
+                            // Prevent tooltip from going off-screen vertically
+                            if (newY < 0) {
+                                newY = yOffset;
+                            }
+
+                            if (newY + tooltipHeight > window.innerHeight) {
+                                newY = window.innerHeight - tooltipHeight;
+                            }
+                            
+                            tooltip.style.left = newX + 'px';
+                            tooltip.style.top = newY + 'px';
+                        }
+                    });
 
                     // 处理webview消息
                     window.addEventListener('message', event => {
@@ -872,7 +948,7 @@ export class ArxmlCustomEditorProvider implements vscode.CustomTextEditorProvide
 
                     function updateBreadcrumb(node) {
                         const path = getNodePath(node);
-                        const breadcrumb = document.getElementById('breadcrumb');
+                        const breadcrumb = document.getElementById('breadcrumb-container');
                         
                         let html = '<span class="breadcrumb-item">ARXML Configuration</span>';
                         
@@ -1041,8 +1117,8 @@ export class ArxmlCustomEditorProvider implements vscode.CustomTextEditorProvide
                         
                         let html = '<div class="form-row" data-param-name="' + escapeHtml(paramName) + '">';
                         
-                        // 参数名标签（现在包含徽章HTML）
-                        html += '<div class="form-label' + (isRequired ? ' required' : '') + '" title="' + escapeHtml(tooltipContent) + '">';
+                        // 参数名标签（现在包含徽章HTML），使用 data-tooltip
+                        html += '<div class="form-label' + (isRequired ? ' required' : '') + '" data-tooltip="' + escapeHtml(tooltipContent) + '">';
                         html += escapeHtml(paramName);
                         if (configTypeDisplay) {
                             html += configTypeDisplay; // 直接添加HTML，不需要转义
