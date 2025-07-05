@@ -21,19 +21,16 @@ class ARXMLTreeBuilder:
             'ECUC-STRING-PARAM-DEF', 'ECUC-BOOLEAN-PARAM-DEF',
             'ECUC-ENUMERATION-PARAM-DEF', 'ECUC-REFERENCE-DEF',
             'ECUC-NUMERICAL-PARAM-VALUE', 'ECUC-TEXTUAL-PARAM-VALUE',
-            'PARAMETER-VALUES', 'PARAMETERS'
+            'PARAMETER-VALUES', 'PARAMETERS', 'REFERENCES', 'REFERENCE-VALUES'
         }
         
-        # 需要跳过的标签（结构性标签和参数相关）
+        # 需要跳过的标签（结构性标签，但不包含参数和引用相关标签）
         self.skip_tags = {
             'DESC', 'L-2', 'RELATED-TRACE-ITEM-REF', 'LOWER-MULTIPLICITY',
             'UPPER-MULTIPLICITY', 'SCOPE', 'ORIGIN', 'POST-BUILD-VARIANT-MULTIPLICITY',
             'POST-BUILD-VARIANT-VALUE', 'REQUIRES-INDEX',
             'MULTIPLICITY-CONFIG-CLASSES', 'SYMBOLIC-NAME-VALUE', 'MAX', 'MIN',
-            'CONTAINERS', 'SUB-CONTAINERS', 'PARAMETER-VALUES', 'PARAMETERS',
-            'ECUC-NUMERICAL-PARAM-VALUE', 'ECUC-TEXTUAL-PARAM-VALUE',
-            'ECUC-INTEGER-PARAM-VALUE', 'ECUC-FLOAT-PARAM-VALUE',
-            'ECUC-STRING-PARAM-VALUE', 'ECUC-BOOLEAN-PARAM-VALUE'
+            'CONTAINERS', 'SUB-CONTAINERS'
         }
     
     def build_davinci_tree(self, root_element: ET.Element) -> Dict[str, Any]:
@@ -232,24 +229,32 @@ class ARXMLTreeBuilder:
             }
         }
         
-        # 处理参数定义
-        parameters = element.find('.//{*}PARAMETERS')
-        if parameters is not None:
-            for param_def in parameters:
-                param = self._build_parameter_def_node(param_def)
-                if param:
-                    node["parameters"].append(param)
-                    node["metadata"]["hasParameters"] = True
-        
-        # 处理子容器定义
-        sub_containers = element.find('.//{*}SUB-CONTAINERS')
-        if sub_containers is not None:
-            for container_def in sub_containers:
-                if self._get_clean_tag_name(container_def.tag) == 'ECUC-PARAM-CONF-CONTAINER-DEF':
-                    container_node = self._build_container_def_node(container_def, current_path)
-                    if container_node:
-                        node["children"].append(container_node)
-                        node["metadata"]["hasChildren"] = True
+        # 只处理直接子节点，防止参数从子容器提升到父容器
+        for child in element:
+            child_tag = self._get_clean_tag_name(child.tag)
+
+            if child_tag == 'PARAMETERS':
+                for param_def in child:
+                    param = self._build_parameter_def_node(param_def)
+                    if param:
+                        node["parameters"].append(param)
+                        node["metadata"]["hasParameters"] = True
+            
+            elif child_tag == 'REFERENCES':
+                for ref_def in child:
+                    if 'REFERENCE-DEF' in self._get_clean_tag_name(ref_def.tag):
+                        param = self._build_parameter_def_node(ref_def)
+                        if param:
+                            node["parameters"].append(param)
+                            node["metadata"]["hasParameters"] = True
+            
+            elif child_tag == 'SUB-CONTAINERS':
+                for container_def in child:
+                    if self._get_clean_tag_name(container_def.tag) == 'ECUC-PARAM-CONF-CONTAINER-DEF':
+                        container_node = self._build_container_def_node(container_def, current_path)
+                        if container_node:
+                            node["children"].append(container_node)
+                            node["metadata"]["hasChildren"] = True
         
         return node
     
@@ -268,6 +273,8 @@ class ARXMLTreeBuilder:
             param_type = 'boolean'
         elif 'ENUMERATION' in param_type:
             param_type = 'enum'
+        elif 'REFERENCE' in param_type:
+            param_type = 'reference'
         else:
             param_type = 'string'
         
@@ -282,7 +289,7 @@ class ARXMLTreeBuilder:
         param_id = f"param_{abs(hash(short_name))}"
         
         # 构建参数对象
-        return {
+        param = {
             "id": param_id,
             "name": short_name,
             "type": param_type,
@@ -290,12 +297,22 @@ class ARXMLTreeBuilder:
             "description": description,
             "metadata": {
                 "originalTag": element.tag,
-                "definitionRef": "",  # 参数定义没有引用
+                "definitionRef": "",
                 "tooltip": f"参数定义: {short_name}",
                 "description": f"{param_type} - {short_name}",
                 "configClasses": config_classes
             }
         }
+        
+        # 如果是引用类型，提取目标引用并将其作为值
+        if param_type == 'reference':
+            dest_ref_element = element.find('.//{*}DESTINATION-REF')
+            if dest_ref_element is not None and dest_ref_element.text:
+                param["value"] = dest_ref_element.text.strip()
+                # 同时保留在metadata中，以备后用
+                param["metadata"]["destinationRef"] = dest_ref_element.text.strip()
+        
+        return param
     
     def _extract_value_config_classes(self, element: ET.Element) -> List[Dict[str, str]]:
         """提取参数的配置类别和变体对"""
@@ -348,7 +365,7 @@ class ARXMLTreeBuilder:
             child_tag = self._get_clean_tag_name(child.tag)
             
             # 处理参数值
-            if child_tag in {'ECUC-NUMERICAL-PARAM-VALUE', 'ECUC-TEXTUAL-PARAM-VALUE'}:
+            if child_tag in {'ECUC-NUMERICAL-PARAM-VALUE', 'ECUC-TEXTUAL-PARAM-VALUE', 'ECUC-REFERENCE-VALUE'}:
                 param = self._build_parameter_value(child)
                 if param:
                     node["parameters"].append(param)
@@ -366,6 +383,13 @@ class ARXMLTreeBuilder:
                     param = self._build_parameter_value(param_child)
                     if param:
                         node["parameters"].append(param)
+            
+            # 处理引用值容器
+            elif child_tag == 'REFERENCE-VALUES':
+                for ref_child in child:
+                    ref_param = self._build_parameter_value(ref_child)
+                    if ref_param:
+                        node["parameters"].append(ref_param)
         
         # 递归处理子容器
         for container_tag in ['CONTAINERS', 'SUB-CONTAINERS', 'ELEMENTS']:
@@ -594,6 +618,8 @@ class ARXMLTreeBuilder:
                 param_type = 'number'
             elif element_tag == 'ECUC-TEXTUAL-PARAM-VALUE':
                 param_type = 'string'
+            elif element_tag == 'ECUC-REFERENCE-VALUE':
+                param_type = 'reference'
             else:
                 return None
             
@@ -606,6 +632,9 @@ class ARXMLTreeBuilder:
                     if definition_ref:
                         param_name = definition_ref.split('/')[-1]
                 elif child_tag == 'VALUE':
+                    param_value = child.text.strip() if child.text else None
+                elif child_tag == 'VALUE-REF' and param_type == 'reference':
+                    # 对于引用类型，VALUE-REF包含引用的目标
                     param_value = child.text.strip() if child.text else None
             
             # 如果没有找到参数名或值，返回None

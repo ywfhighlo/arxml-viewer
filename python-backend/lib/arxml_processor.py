@@ -764,18 +764,57 @@ class ARXMLProcessor:
             if not refs_element:
                 return
             
+            self.logger.debug(f"开始提取引用值，容器路径: {container_path}")
+            
             ref_values = []
-            possible_tags = ['ECUC_REFERENCE_VALUE', 'ecuc_reference_value']
-
-            for tag in possible_tags:
-                if hasattr(refs_element, tag):
-                    values = getattr(refs_element, tag)
+            
+            # 尝试多种可能的属性名
+            possible_attrs = [
+                'ECUC_REFERENCE_VALUE', 'ecuc_reference_value',
+                'ECUC-REFERENCE-VALUE', 'EcucReferenceValue'
+            ]
+            
+            # 方式1: 直接属性访问
+            for attr_name in possible_attrs:
+                if hasattr(refs_element, attr_name):
+                    values = getattr(refs_element, attr_name)
                     if values:
                         if not isinstance(values, list):
                             values = [values]
                         ref_values.extend(values)
-
-            for ref_value in ref_values:
+                        self.logger.debug(f"通过属性 {attr_name} 找到 {len(values)} 个引用值")
+                        break
+            
+            # 方式2: 遍历所有属性查找引用值
+            if not ref_values:
+                for attr_name in dir(refs_element):
+                    if not attr_name.startswith('_') and 'REFERENCE' in attr_name.upper() and 'VALUE' in attr_name.upper():
+                        attr_value = getattr(refs_element, attr_name)
+                        if attr_value:
+                            if isinstance(attr_value, list):
+                                ref_values.extend(attr_value)
+                            else:
+                                ref_values.append(attr_value)
+                            self.logger.debug(f"通过遍历属性 {attr_name} 找到引用值")
+            
+            # 方式3: 直接迭代
+            if not ref_values and hasattr(refs_element, '__iter__'):
+                try:
+                    for item in refs_element:
+                        if hasattr(item, 'tag') and 'REFERENCE' in str(item.tag).upper() and 'VALUE' in str(item.tag).upper():
+                            ref_values.append(item)
+                        elif hasattr(item, '__class__') and 'REFERENCE' in str(item.__class__.__name__).upper() and 'VALUE' in str(item.__class__.__name__).upper():
+                            ref_values.append(item)
+                    if ref_values:
+                        self.logger.debug(f"通过直接迭代找到 {len(ref_values)} 个引用值")
+                except Exception as iter_error:
+                    self.logger.debug(f"引用值直接迭代失败: {iter_error}")
+            
+            self.logger.debug(f"容器 {container_path} 总共找到 {len(ref_values)} 个引用值")
+            
+            # 处理每个引用值
+            for i, ref_value in enumerate(ref_values):
+                self.logger.debug(f"处理第 {i+1} 个引用值")
                 self._process_parameter(ref_value, container_path, 'reference')
 
         except Exception as e:
@@ -917,23 +956,62 @@ class ARXMLProcessor:
             self.parse_statistics['parse_errors'] += 1
 
     def _extract_reference_defs(self, refs_element, container_path: str):
-        """新方法: 从容器定义中提取引用定义(ECUC-REFERENCE-DEF)"""
+        """从容器定义中提取引用定义(ECUC-REFERENCE-DEF)"""
         try:
             if not refs_element:
                 return
             
+            self.logger.debug(f"开始提取引用定义，容器路径: {container_path}")
+            
             ref_defs = []
-            possible_tags = ['ECUC_REFERENCE_DEF', 'ecuc_reference_def']
-
-            for tag in possible_tags:
-                if hasattr(refs_element, tag):
-                    defs = getattr(refs_element, tag)
+            
+            # 尝试多种可能的属性名
+            possible_attrs = [
+                'ECUC_REFERENCE_DEF', 'ecuc_reference_def',
+                'ECUC-REFERENCE-DEF', 'EcucReferenceDef'
+            ]
+            
+            # 方式1: 直接属性访问
+            for attr_name in possible_attrs:
+                if hasattr(refs_element, attr_name):
+                    defs = getattr(refs_element, attr_name)
                     if defs:
                         if not isinstance(defs, list):
                             defs = [defs]
                         ref_defs.extend(defs)
-
-            for ref_def in ref_defs:
+                        self.logger.debug(f"通过属性 {attr_name} 找到 {len(defs)} 个引用定义")
+                        break
+            
+            # 方式2: 遍历所有属性查找引用定义
+            if not ref_defs:
+                for attr_name in dir(refs_element):
+                    if not attr_name.startswith('_') and 'REFERENCE' in attr_name.upper():
+                        attr_value = getattr(refs_element, attr_name)
+                        if attr_value:
+                            if isinstance(attr_value, list):
+                                ref_defs.extend(attr_value)
+                            else:
+                                ref_defs.append(attr_value)
+                            self.logger.debug(f"通过遍历属性 {attr_name} 找到引用定义")
+            
+            # 方式3: 直接迭代
+            if not ref_defs and hasattr(refs_element, '__iter__'):
+                try:
+                    for item in refs_element:
+                        if hasattr(item, 'tag') and 'REFERENCE' in str(item.tag).upper():
+                            ref_defs.append(item)
+                        elif hasattr(item, '__class__') and 'REFERENCE' in str(item.__class__.__name__).upper():
+                            ref_defs.append(item)
+                    if ref_defs:
+                        self.logger.debug(f"通过直接迭代找到 {len(ref_defs)} 个引用定义")
+                except Exception as iter_error:
+                    self.logger.debug(f"引用定义直接迭代失败: {iter_error}")
+            
+            self.logger.debug(f"容器 {container_path} 总共找到 {len(ref_defs)} 个引用定义")
+            
+            # 处理每个引用定义
+            for i, ref_def in enumerate(ref_defs):
+                self.logger.debug(f"处理第 {i+1} 个引用定义")
                 self._process_parameter_def(ref_def, container_path)
 
         except Exception as e:
@@ -1101,6 +1179,116 @@ class ARXMLProcessor:
                 return 'STRING'
         
         return 'STRING'  # 默认类型
+    
+    def _process_parameter_def(self, param_def, container_path: str):
+        """处理参数定义（包括引用定义）"""
+        try:
+            # 获取参数名称
+            param_name = self._extract_short_name(param_def)
+            if not param_name or param_name == 'unknown':
+                self.logger.debug(f"跳过无名称参数定义")
+                return
+            
+            # 获取参数定义的类型
+            param_def_type = self._get_parameter_def_type(param_def)
+            
+            # 提取描述
+            description = ""
+            if hasattr(param_def, 'DESC') and param_def.DESC:
+                description = self._extract_text_content(param_def.DESC)
+            elif hasattr(param_def, 'desc') and param_def.desc:
+                description = self._extract_text_content(param_def.desc)
+            
+            # 提取默认值
+            default_value = ""
+            if hasattr(param_def, 'DEFAULT_VALUE') and param_def.DEFAULT_VALUE:
+                default_value = self._extract_text_content(param_def.DEFAULT_VALUE)
+            elif hasattr(param_def, 'default_value') and param_def.default_value:
+                default_value = self._extract_text_content(param_def.default_value)
+            
+            # 对于引用类型，提取引用目标
+            reference_target = ""
+            if param_def_type == 'REFERENCE':
+                if hasattr(param_def, 'DESTINATION_REF') and param_def.DESTINATION_REF:
+                    reference_target = self._extract_text_content(param_def.DESTINATION_REF)
+                elif hasattr(param_def, 'destination_ref') and param_def.destination_ref:
+                    reference_target = self._extract_text_content(param_def.destination_ref)
+                elif hasattr(param_def, 'DESTINATION_TYPE') and param_def.DESTINATION_TYPE:
+                    reference_target = self._extract_text_content(param_def.DESTINATION_TYPE)
+            
+            param_full_path = f"{container_path}/{param_name}"
+            
+            # 创建参数信息
+            param_info = {
+                'name': param_name,
+                'path': param_full_path,
+                'container_path': container_path,
+                'type': param_def_type,
+                'default': default_value,
+                'current_value': default_value,
+                'description': description or f'{param_def_type} parameter definition',
+                'source': 'arxml',
+                'definition_path': param_full_path,
+                'is_definition': True  # 标记这是参数定义
+            }
+            
+            # 如果是引用类型，添加引用目标信息
+            if param_def_type == 'REFERENCE' and reference_target:
+                param_info['reference_target'] = reference_target
+                param_info['description'] = f"Reference to {reference_target}"
+            
+            # 存储参数信息
+            self.variables[param_full_path] = param_info
+            
+            # 添加到容器的参数列表
+            if container_path in self.containers:
+                if 'parameters' not in self.containers[container_path]:
+                    self.containers[container_path]['parameters'] = []
+                self.containers[container_path]['parameters'].append(param_info)
+            
+            self.parse_statistics['total_parameters'] += 1
+            self.logger.debug(f"处理参数定义: {param_name} ({param_def_type})")
+            
+        except Exception as e:
+            self.logger.error(f"处理参数定义失败: {e}")
+            if self.verbose:
+                import traceback
+                traceback.print_exc()
+            self.parse_statistics['parse_errors'] += 1
+    
+    def _get_parameter_def_type(self, param_def) -> str:
+        """获取参数定义的类型"""
+        try:
+            # 从类名或标签名推断类型
+            if hasattr(param_def, 'tag'):
+                tag_name = param_def.tag
+            elif hasattr(param_def, '__class__'):
+                tag_name = param_def.__class__.__name__
+            else:
+                tag_name = str(type(param_def))
+            
+            tag_upper = tag_name.upper()
+            
+            if 'REFERENCE' in tag_upper:
+                return 'REFERENCE'
+            elif 'INTEGER' in tag_upper:
+                return 'INTEGER'
+            elif 'FLOAT' in tag_upper:
+                return 'FLOAT'
+            elif 'BOOLEAN' in tag_upper:
+                return 'BOOLEAN'
+            elif 'ENUMERATION' in tag_upper:
+                return 'ENUMERATION'
+            elif 'STRING' in tag_upper or 'TEXTUAL' in tag_upper:
+                return 'STRING'
+            elif 'FUNCTION' in tag_upper:
+                return 'FUNCTION'
+            else:
+                return 'UNKNOWN'
+                
+        except Exception as e:
+            self.logger.debug(f"获取参数定义类型失败: {e}")
+            return 'UNKNOWN'
     
     def _extract_parameters(self):
         """提取参数信息"""
