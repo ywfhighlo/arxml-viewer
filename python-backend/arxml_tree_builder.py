@@ -289,7 +289,7 @@ class ARXMLTreeBuilder:
         param_id = f"param_{abs(hash(short_name))}"
         
         # 构建参数对象
-        return {
+        param = {
             "id": param_id,
             "name": short_name,
             "type": param_type,
@@ -297,12 +297,22 @@ class ARXMLTreeBuilder:
             "description": description,
             "metadata": {
                 "originalTag": element.tag,
-                "definitionRef": "",  # 参数定义没有引用
+                "definitionRef": "",
                 "tooltip": f"参数定义: {short_name}",
                 "description": f"{param_type} - {short_name}",
                 "configClasses": config_classes
             }
         }
+        
+        # 如果是引用类型，提取目标引用并将其作为值
+        if param_type == 'reference':
+            dest_ref_element = element.find('.//{*}DESTINATION-REF')
+            if dest_ref_element is not None and dest_ref_element.text:
+                param["value"] = dest_ref_element.text.strip()
+                # 同时保留在metadata中，以备后用
+                param["metadata"]["destinationRef"] = dest_ref_element.text.strip()
+        
+        return param
     
     def _extract_value_config_classes(self, element: ET.Element) -> List[Dict[str, str]]:
         """提取参数的配置类别和变体对"""
