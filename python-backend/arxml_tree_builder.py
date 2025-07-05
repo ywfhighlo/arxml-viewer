@@ -229,34 +229,32 @@ class ARXMLTreeBuilder:
             }
         }
         
-        # 处理参数定义
-        parameters = element.find('.//{*}PARAMETERS')
-        if parameters is not None:
-            for param_def in parameters:
-                param = self._build_parameter_def_node(param_def)
-                if param:
-                    node["parameters"].append(param)
-                    node["metadata"]["hasParameters"] = True
-        
-        # 处理引用定义
-        references = element.find('.//{*}REFERENCES')
-        if references is not None:
-            for ref_def in references:
-                if 'REFERENCE-DEF' in self._get_clean_tag_name(ref_def.tag):
-                    param = self._build_parameter_def_node(ref_def)
+        # 只处理直接子节点，防止参数从子容器提升到父容器
+        for child in element:
+            child_tag = self._get_clean_tag_name(child.tag)
+
+            if child_tag == 'PARAMETERS':
+                for param_def in child:
+                    param = self._build_parameter_def_node(param_def)
                     if param:
                         node["parameters"].append(param)
                         node["metadata"]["hasParameters"] = True
-        
-        # 处理子容器定义
-        sub_containers = element.find('.//{*}SUB-CONTAINERS')
-        if sub_containers is not None:
-            for container_def in sub_containers:
-                if self._get_clean_tag_name(container_def.tag) == 'ECUC-PARAM-CONF-CONTAINER-DEF':
-                    container_node = self._build_container_def_node(container_def, current_path)
-                    if container_node:
-                        node["children"].append(container_node)
-                        node["metadata"]["hasChildren"] = True
+            
+            elif child_tag == 'REFERENCES':
+                for ref_def in child:
+                    if 'REFERENCE-DEF' in self._get_clean_tag_name(ref_def.tag):
+                        param = self._build_parameter_def_node(ref_def)
+                        if param:
+                            node["parameters"].append(param)
+                            node["metadata"]["hasParameters"] = True
+            
+            elif child_tag == 'SUB-CONTAINERS':
+                for container_def in child:
+                    if self._get_clean_tag_name(container_def.tag) == 'ECUC-PARAM-CONF-CONTAINER-DEF':
+                        container_node = self._build_container_def_node(container_def, current_path)
+                        if container_node:
+                            node["children"].append(container_node)
+                            node["metadata"]["hasChildren"] = True
         
         return node
     
