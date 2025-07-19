@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run compile:*)",
+      "Bash(npm run:*)",
+      "Bash(python3:*)",
+      "Bash(python:*)",
+      "Bash(rg:*)"
+    ],
+    "deny": []
+  }
+}

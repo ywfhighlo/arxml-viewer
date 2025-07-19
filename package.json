@@ -82,6 +82,12 @@
         "icon": "$(split-horizontal)"
       },
       {
+        "command": "arxml.openWithDualTabs",
+        "title": "双标签页打开（文本+预览）",
+        "category": "ARXML",
+        "icon": "$(file-add)"
+      },
+      {
         "command": "arxml.refreshPreview",
         "title": "刷新预览",
         "icon": "$(refresh)"
@@ -234,7 +240,12 @@
         {
           "command": "arxml.openToSide",
           "when": "resourceExtname =~ /\\.(arxml|xdm|xml)$/",
-          "group": "navigation"
+          "group": "navigation@1"
+        },
+        {
+          "command": "arxml.openWithDualTabs",
+          "when": "resourceExtname =~ /\\.(arxml|xdm|xml)$/",
+          "group": "navigation@2"
         }
       ],
       "commandPalette": [
@@ -244,6 +255,10 @@
         },
         {
           "command": "arxml.openToSide",
+          "when": "resourceExtname =~ /\\.(arxml|xdm|xml)$/"
+        },
+        {
+          "command": "arxml.openWithDualTabs",
           "when": "resourceExtname =~ /\\.(arxml|xdm|xml)$/"
         }
       ]
@@ -314,6 +329,12 @@
             "显示链接时变体的配置类型（链接时确定）"
           ],
           "description": "选择显示哪种变体的配置类型标识",
+          "scope": "window"
+        },
+        "arxmlTreePreviewer.enableDualTabs": {
+          "type": "boolean",
+          "default": true,
+          "description": "启用双标签页打开模式（文本+预览）",
           "scope": "window"
         }
       }

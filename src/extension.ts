@@ -24,6 +24,54 @@ export async function activate(context: vscode.ExtensionContext) {
         );
         console.log('✅ Custom editor provider registered successfully');
 
+        // 注册文件打开监听器，实现双击文件时自动双标签页打开
+        const fileOpenListener = vscode.workspace.onDidOpenTextDocument(async (document) => {
+            const fileExtension = path.extname(document.fileName).toLowerCase();
+            const config = vscode.workspace.getConfiguration('arxmlTreePreviewer');
+            const enableDualTabs = config.get<boolean>('enableDualTabs', true);
+            
+            if (enableDualTabs && ['.arxml', '.xdm', '.xml', '.bmd'].includes(fileExtension)) {
+                // 检查是否已经有相同文件打开，避免重复打开
+                const existingTabs = vscode.window.tabGroups.all.flatMap(group => group.tabs);
+                const hasPreviewTab = existingTabs.some(tab => 
+                    tab.input instanceof vscode.TabInputCustom && 
+                    tab.input.uri.fsPath === document.uri.fsPath &&
+                    tab.input.viewType === 'arxmlTreePreview'
+                );
+                const hasTextTab = existingTabs.some(tab => 
+                    tab.input instanceof vscode.TabInputText && 
+                    tab.input.uri.fsPath === document.uri.fsPath
+                );
+                
+                // 如果两个视图都不存在，才执行双标签页打开
+                if (!hasPreviewTab || !hasTextTab) {
+                    setTimeout(async () => {
+                        try {
+                            await openDualTabs(document.uri);
+                        } catch (error) {
+                            console.log('双标签页打开失败，降级到单标签页:', error);
+                        }
+                    }, 100);
+                }
+            }
+        });
+
+        // 注册命令处理器，用于打开文件时创建双标签页
+        const openWithDualTabsCommand = vscode.commands.registerCommand('arxml.openWithDualTabs', async (uri?: vscode.Uri) => {
+            if (!uri && vscode.window.activeTextEditor) {
+                uri = vscode.window.activeTextEditor.document.uri;
+            }
+
+            if (uri) {
+                try {
+                    await openDualTabs(uri);
+                } catch (error) {
+                    console.error('❌ Error opening with dual tabs:', error);
+                    vscode.window.showErrorMessage(`双标签页打开失败: ${error}`);
+                }
+            }
+        });
+
         // 注册命令
         const openToSideCommand = vscode.commands.registerCommand('arxml.openToSide', async (uri?: vscode.Uri) => {
             console.log('🚀 arxml.openToSide command executed!', uri?.fsPath);
@@ -136,6 +184,8 @@ export async function activate(context: vscode.ExtensionContext) {
         // 添加所有订阅
         context.subscriptions.push(
             customEditorDisposable,
+            fileOpenListener,
+            openWithDualTabsCommand,
             openToSideCommand,
             openTreePreviewCommand,
             testCustomEditorCommand,
@@ -151,6 +201,31 @@ export async function activate(context: vscode.ExtensionContext) {
     } catch (error) {
         console.error('❌ Error during activation:', error);
         vscode.window.showErrorMessage(`插件激活失败: ${error}`);
+    }
+}
+
+async function openDualTabs(uri: vscode.Uri): Promise<void> {
+    try {
+        console.log('🔄 正在打开双标签页:', uri.fsPath);
+        
+        const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : vscode.ViewColumn.One;
+
+        // 步骤1: 在当前标签页组中打开原始文本文件。
+        // 我们不希望这个标签页成为焦点，所以我们稍后会打开预览。
+        await vscode.window.showTextDocument(uri, {
+            preview: false,
+            viewColumn: column
+        });
+
+        // 步骤2: 在同一个标签页组中打开自定义预览视图。
+        // 这将会成为活动标签页。
+        await vscode.commands.executeCommand('vscode.openWith', uri, 'arxmlTreePreview', column);
+        
+        console.log('✅ 双标签页打开成功 - 预览和原始文件在同一个标签组中。');
+        
+    } catch (error) {
+        console.error('❌ 双标签页打开失败:', error);
+        throw error;
     }
 }
 
