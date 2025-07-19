@@ -6,7 +6,7 @@
 
 **作者**: 余文锋  
 **邮箱**: 909188787@qq.com  
-**项目**: ARXML Viewer VSCode Extension
+**项目地址**: https://github.com/ywfhighlo/arxml-viewer
 
 ## 🎯 项目概述
 
