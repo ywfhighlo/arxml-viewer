@@ -34,6 +34,7 @@
   "engines": {
     "vscode": "^1.60.0"
   },
+  "icon": "resources/icon.png",
   "activationEvents": [
     "onCommand:arxml.openTreePreview",
     "onCommand:arxml.openToSide",
