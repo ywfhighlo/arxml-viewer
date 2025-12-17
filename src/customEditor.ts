@@ -631,8 +631,9 @@ export class ArxmlCustomEditorProvider implements vscode.CustomTextEditorProvide
                         position: fixed;
                         z-index: 1000;
                         padding: 8px 12px;
-                        background-color: var(--vscode-editor-hoverHighlightBackground);
-                        border: 1px solid var(--vscode-panel-border);
+                        background-color: var(--vscode-editorHoverWidget-background);
+                        border: 1px solid var(--vscode-editorHoverWidget-border);
+                        color: var(--vscode-editorHoverWidget-foreground);
                         border-radius: 4px;
                         font-size: 11px;
                         line-height: 1.4;
