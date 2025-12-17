@@ -1104,7 +1104,7 @@ export class ArxmlCustomEditorProvider implements vscode.CustomTextEditorProvide
 
                     function renderParameterField(param) {
                         const paramName = param.name || param.shortName || 'Unknown Parameter';
-                        const paramValue = param.value || '';
+                        const paramValue = getEffectiveParamValue(param);
                         const paramType = param.type || 'string';
                         const description = param.description || param.metadata?.description || '';
                         const isRequired = param.required || false;
@@ -1140,8 +1140,8 @@ export class ArxmlCustomEditorProvider implements vscode.CustomTextEditorProvide
                             case 'enum':
                                 html += '<select class="form-select">';
                                 html += '<option value="">Select...</option>';
-                                // 这里需要从参数定义中获取枚举值，暂时使用示例
-                                ['Option1', 'Option2', 'Option3'].forEach(option => {
+                                const enumOptions = getEnumOptions(param);
+                                enumOptions.forEach(option => {
                                     const selected = paramValue === option ? 'selected' : '';
                                     html += '<option value="' + escapeHtml(option) + '" ' + selected + '>' + escapeHtml(option) + '</option>';
                                 });
@@ -1161,6 +1161,49 @@ export class ArxmlCustomEditorProvider implements vscode.CustomTextEditorProvide
                         html += '</div>';
                         
                         return html;
+                    }
+                    
+                    function normalizeToString(value) {
+                        if (value === undefined || value === null) return '';
+                        return String(value);
+                    }
+                    
+                    function getEffectiveParamValue(param) {
+                        const currentValue = normalizeToString(param?.value);
+                        if (currentValue !== '') return currentValue;
+                        const defaultValue = normalizeToString(param?.default ?? param?.metadata?.defaultValue ?? param?.metadata?.default);
+                        return defaultValue;
+                    }
+                    
+                    function getEnumOptions(param) {
+                        const options = [];
+                        const seen = new Set();
+                        
+                        const add = (v) => {
+                            const s = normalizeToString(v);
+                            if (!s || seen.has(s)) return;
+                            seen.add(s);
+                            options.push(s);
+                        };
+                        
+                        const lists = [
+                            param?.metadata?.enumValues,
+                            param?.constraints?.enumValues,
+                            param?.constraints?.values,
+                            param?.constraints?.allowedValues
+                        ];
+                        
+                        lists.forEach(list => {
+                            if (!Array.isArray(list)) return;
+                            list.forEach(add);
+                        });
+                        
+                        add(param?.value);
+                        add(param?.default);
+                        add(param?.metadata?.defaultValue);
+                        add(param?.metadata?.default);
+                        
+                        return options;
                     }
 
                     function attachFormEventListeners() {

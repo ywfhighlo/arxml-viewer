@@ -281,6 +281,21 @@ class ARXMLTreeBuilder:
         # 获取参数描述
         desc_elem = element.find('.//{*}L-2')
         description = desc_elem.text if desc_elem is not None and desc_elem.text else ''
+
+        default_value = ""
+        default_elem = element.find('.//{*}DEFAULT-VALUE')
+        if default_elem is not None and default_elem.text:
+            default_value = default_elem.text.strip()
+        elif hasattr(element, "find"):
+            value_elem = element.find('.//{*}DEFAULT-VALUE-REF')
+            if value_elem is not None and value_elem.text:
+                default_value = value_elem.text.strip()
+
+        if param_type == 'boolean':
+            if default_value in ['1', 'TRUE', 'True', 'true']:
+                default_value = 'true'
+            elif default_value in ['0', 'FALSE', 'False', 'false']:
+                default_value = 'false'
         
         # 获取配置类别
         config_classes = self._extract_value_config_classes(element)
@@ -293,17 +308,29 @@ class ARXMLTreeBuilder:
             "id": param_id,
             "name": short_name,
             "type": param_type,
-            "value": "",  # 参数定义没有实际值
+            "value": default_value,
             "description": description,
             "metadata": {
                 "originalTag": element.tag,
                 "definitionRef": "",
                 "tooltip": f"参数定义: {short_name}",
                 "description": f"{param_type} - {short_name}",
-                "configClasses": config_classes
+                "configClasses": config_classes,
+                "defaultValue": default_value
             }
         }
-        
+
+        if param_type == 'enum':
+            enum_values: List[str] = []
+            literals_elem = element.find('.//{*}LITERALS')
+            if literals_elem is not None:
+                for literal_def in literals_elem.findall('.//{*}ECUC-ENUMERATION-LITERAL-DEF'):
+                    lit_name = self._extract_short_name(literal_def)
+                    if lit_name:
+                        enum_values.append(lit_name)
+            if enum_values:
+                param["metadata"]["enumValues"] = enum_values
+
         # 如果是引用类型，提取目标引用并将其作为值
         if param_type == 'reference':
             dest_ref_element = element.find('.//{*}DESTINATION-REF')
