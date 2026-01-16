@@ -1149,7 +1149,14 @@ export class ArxmlCustomEditorProvider implements vscode.CustomTextEditorProvide
                                 break;
                                 
                             case 'number':
+                            case 'integer':
+                            case 'float':
                                 html += '<input type="number" class="form-input" value="' + escapeHtml(paramValue) + '" placeholder="0">';
+                                break;
+
+                            case 'REFERENCE':
+                            case 'REFERENCE_LIST':
+                                html += '<textarea class="form-input" rows="2" placeholder="No references" readonly title="Reference path">' + escapeHtml(paramValue) + '</textarea>';
                                 break;
                                 
                             default: // string

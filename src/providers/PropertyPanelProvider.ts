@@ -52,6 +52,10 @@ export class PropertyPanelProvider implements vscode.TreeDataProvider<ParameterI
             case 'boolean':
                 item.iconPath = new vscode.ThemeIcon('symbol-boolean');
                 break;
+            case 'REFERENCE':
+            case 'REFERENCE_LIST':
+                item.iconPath = new vscode.ThemeIcon('references');
+                break;
             default:
                 item.iconPath = new vscode.ThemeIcon('symbol-variable');
         }

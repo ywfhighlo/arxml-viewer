@@ -199,13 +199,33 @@ class XDMProcessor:
         """从XDM中提取变量定义"""
         # 在各种XDM结构中查找变量定义
         for elem in root.iter():
+            tag = elem.tag
+            clean_tag = tag.split('}')[-1] if '}' in tag else tag
+            
             # 检查v:var元素（XDM变量定义）
-            if elem.tag.endswith('}var') or elem.tag == 'var' or 'variable' in elem.tag.lower() or 'param' in elem.tag.lower():
+            if clean_tag == 'var' or 'variable' in clean_tag.lower() or 'param' in clean_tag.lower():
                 var_info = self._parse_variable_element(elem)
                 if var_info:
                     var_name = var_info.get('name')
                     if var_name:
                         self.variables[var_name] = var_info
+            
+            # 检查 v:lst (列表) 和 v:ref (引用)
+            # v:lst 通常包含 v:ref 或 v:var，但也可能作为一种特殊的参数容器
+            elif clean_tag == 'lst' or clean_tag == 'ref':
+                var_info = self._parse_complex_variable_element(elem)
+                if var_info:
+                    var_name = var_info.get('name')
+                    if var_name:
+                        # 如果是列表，可能存在同名的情况（虽然在字典中会被覆盖，但我们尽量处理）
+                        # 对于 v:lst，通常它本身就是一个参数
+                        if var_name in self.variables:
+                            # 如果已存在，可能是之前的处理（如v:var）已经提取了
+                            # 或者是一个多重定义的列表？通常不会。
+                            # 更新现有信息
+                            self.variables[var_name].update(var_info)
+                        else:
+                            self.variables[var_name] = var_info
     
     def _extract_containers(self, root):
         """从XDM中提取容器定义"""
@@ -228,20 +248,34 @@ class XDMProcessor:
                         
                         # 查找该容器中的变量
                         container_vars = []
-                        for var_elem in elem.iter():
-                            if (var_elem.tag.endswith('}var') or var_elem.tag == 'var' or 
-                                'variable' in var_elem.tag.lower() or 'param' in var_elem.tag.lower()):
-                                var_info = self._parse_variable_element(var_elem)
+                        # 使用直接子元素查找，避免重复包含子容器中的变量
+                        # 并移除不可靠的父路径检查
+                        for var_elem in elem:
+                            tag = var_elem.tag
+                            clean_tag = tag.split('}')[-1] if '}' in tag else tag
+                            
+                            is_var = clean_tag == 'var' or 'variable' in clean_tag.lower() or 'param' in clean_tag.lower()
+                            is_complex = clean_tag == 'lst' or clean_tag == 'ref'
+                            
+                            if is_var or is_complex:
+                                if is_var:
+                                    var_info = self._parse_variable_element(var_elem)
+                                else:
+                                    var_info = self._parse_complex_variable_element(var_elem)
+                                    
                                 if var_info:
                                     var_name = var_info['name']
                                     # 设置变量的容器路径
                                     var_info['container_path'] = container_path
+                                    
                                     # 更新全局变量字典
                                     if var_name in self.variables:
                                         self.variables[var_name].update(var_info)
                                     else:
                                         self.variables[var_name] = var_info
-                                    container_vars.append(var_name)
+                                    
+                                    if var_name not in container_vars:
+                                        container_vars.append(var_name)
                         
                         # 更新容器的变量列表
                         container_info['variables'] = container_vars
@@ -307,6 +341,109 @@ class XDMProcessor:
         
         return var_info if var_info['name'] else None
     
+    def _parse_complex_variable_element(self, elem) -> Dict[str, Any]:
+        """解析复杂变量元素(v:lst, v:ref)并提取信息"""
+        tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
+        
+        var_info = {
+            'name': elem.get('name', ''),
+            'type': 'REFERENCE_LIST' if tag == 'lst' else 'REFERENCE',
+            'default': '',
+            'description': elem.get('desc', ''),
+            'path': self._get_element_path(elem),
+            'tag': elem.tag,
+            'container_path': self._determine_container_path(elem)
+        }
+        
+        # 尝试提取描述
+        for child in elem:
+            child_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+            if child_tag == 'a' and child.get('name') == 'DESC':
+                desc_val = child.find('.//v')
+                if desc_val is not None and desc_val.text: # type: ignore
+                    var_info['description'] = desc_val.text # type: ignore
+                elif child.text:
+                    var_info['description'] = child.text
+        
+        # 提取值
+        current_values = []
+        
+        if tag == 'lst':
+            # 对于列表，遍历子元素查找引用或变量
+            for child in elem:
+                child_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+                
+                if child_tag == 'ref':
+                    # 提取引用
+                    ref_val = self._extract_reference_value(child)
+                    if ref_val:
+                        current_values.append(ref_val)
+                elif child_tag == 'var':
+                    # 提取变量值（如果列表包含变量）
+                    if child.text and child.text.strip():
+                        current_values.append(child.text.strip())
+            
+            # 如果没有找到具体值，检查是否有默认值定义
+            if not current_values:
+                # 检查是否包含指向Schema的引用定义（如 AdcGroupDefinition）
+                for child in elem:
+                     child_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+                     if child_tag == 'ref':
+                         # 这是一个定义引用，尝试提取它的默认引用路径
+                         ref_schema = self._extract_reference_value(child, check_default=True)
+                         if ref_schema:
+                             var_info['schema_ref'] = ref_schema
+                             # 也可以作为默认值显示，但标记为Schema
+                             # current_values.append(f"Schema: {ref_schema}")
+
+        elif tag == 'ref':
+            # 直接提取引用
+            ref_val = self._extract_reference_value(elem)
+            if ref_val:
+                current_values.append(ref_val)
+            else:
+                 # 检查默认值
+                 ref_def = self._extract_reference_value(elem, check_default=True)
+                 if ref_def:
+                     var_info['default'] = ref_def
+        
+        # 设置 current_value
+        if current_values:
+            var_info['current_value'] = ', '.join(current_values) if len(current_values) > 1 else current_values[0]
+            var_info['is_list'] = True
+        else:
+            var_info['current_value'] = ''
+            
+        return var_info if var_info['name'] else None
+
+    def _extract_reference_value(self, elem, check_default=False) -> Optional[str]:
+        """从 ref 元素中提取引用值"""
+        # 1. 检查直接的值属性 (不太常见，通常在子元素中)
+        if elem.get('value'):
+            return elem.get('value')
+            
+        # 2. 检查子元素 a:da name="REF" 或 a:a name="REF"
+        for child in elem:
+            child_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+            
+            # 检查 a:da (Data Attribute) 或 a:a (Attribute)
+            if child_tag in ('da', 'a') and child.get('name') == 'REF':
+                val = child.get('value')
+                if val:
+                    # 如果是检查默认值，或者这不是一个 Schema 引用（通常 Schema 引用包含 ASPathDataOfSchema）
+                    # 实际上，在 XDM 定义中，DEFAULT 通常在 a:da name="DEFAULT"
+                    # 而 REF 属性可能指向类型定义
+                    return val
+        
+        # 3. 检查 a:da name="DEFAULT" (如果 check_default=True)
+        if check_default:
+             for child in elem:
+                child_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+                if child_tag == 'da' and child.get('name') == 'DEFAULT':
+                    return child.get('value')
+
+        return None
+
     def _parse_container_element(self, elem) -> Dict[str, Any]:
         """解析容器元素并提取信息"""
         container_info = {
