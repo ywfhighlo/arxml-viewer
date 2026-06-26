@@ -1558,7 +1558,7 @@ export class ArxmlCustomEditorProvider implements vscode.CustomTextEditorProvide
                     fileInfo: {
                         path: uri.fsPath,
                         size: fileStats.size,
-                        type: fileExtension === '.arxml' ? 'ARXML' : 
+                        type: fileExtension === '.arxml' || fileExtension === '.epd' ? 'ARXML' :
                               fileExtension === '.xdm' ? 'XDM' : 'XML',
                         preview: preview
                     },

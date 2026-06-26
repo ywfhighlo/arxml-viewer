@@ -38,6 +38,8 @@ class VSCodeBackend:
             
             if file_type == "arxml":
                 return self._parse_arxml_file(str(file_path), "arxml")
+            elif file_type == "epd":
+                return self._parse_arxml_file(str(file_path), "epd")  # EPD是AUTOSAR ECUC定义文件，使用ARXML解析器
             elif file_type == "bmd":
                 return self._parse_arxml_file(str(file_path), "bmd")  # BMD使用ARXML解析器，但保持BMD类型
             elif file_type == "xdm":
@@ -379,6 +381,8 @@ class VSCodeBackend:
         suffix = file_path.suffix.lower()
         if suffix == ".arxml":
             return "arxml"
+        elif suffix == ".epd":
+            return "epd"
         elif suffix == ".bmd":
             return "bmd"
         elif suffix == ".xdm":

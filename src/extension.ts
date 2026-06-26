@@ -30,7 +30,7 @@ export async function activate(context: vscode.ExtensionContext) {
             const config = vscode.workspace.getConfiguration('arxmlTreePreviewer');
             const enableDualTabs = config.get<boolean>('enableDualTabs', true);
             
-            if (enableDualTabs && ['.arxml', '.xdm', '.xml', '.bmd'].includes(fileExtension)) {
+            if (enableDualTabs && ['.arxml', '.xdm', '.xml', '.bmd', '.epd'].includes(fileExtension)) {
                 // 检查是否已经有相同文件打开，避免重复打开
                 const existingTabs = vscode.window.tabGroups.all.flatMap(group => group.tabs);
                 const hasPreviewTab = existingTabs.some(tab => 

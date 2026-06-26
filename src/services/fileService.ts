@@ -32,12 +32,12 @@ export class FileService {
     }
 
     getSupportedExtensions(): string[] {
-        return ['.arxml', '.xdm', '.xml'];
+        return ['.arxml', '.xdm', '.xml', '.epd'];
     }
 
     isSupported(uri: vscode.Uri): boolean {
         const extension = uri.fsPath.toLowerCase().split('.').pop();
-        return ['arxml', 'xdm', 'xml'].includes(extension || '');
+        return ['arxml', 'xdm', 'xml', 'epd'].includes(extension || '');
     }
 
     async openFileAtLocation(location: { file: string; line: number; column: number }): Promise<void> {
